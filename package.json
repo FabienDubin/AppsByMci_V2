@@ -1,0 +1,29 @@
+{
+  "name": "appsbymci_v2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AppsByMCI V2 - Plateforme d'animation événementielle corporate avec IA générative",
+  "author": "Fab",
+  "license": "ISC",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "npm run dev --prefix apps/frontend",
+    "dev:backend": "npm run dev --prefix apps/backend",
+    "build": "npm run build --prefix packages/shared && npm run build --prefix apps/frontend && npm run build --prefix apps/backend",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "prettier": "^3.6.2"
+  }
+}

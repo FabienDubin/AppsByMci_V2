@@ -1,0 +1,242 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.1</storyId>
+    <title>Initialisation du Monorepo et Configuration TypeScript</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-21</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/1-1-initialisation-du-monorepo-et-configuration-typescript.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>développeur</asA>
+    <iWant>initialiser la structure monorepo avec Next.js 16, Fastify et TypeScript strict</iWant>
+    <soThat>l'équipe dispose d'une base technique solide pour tous les développements futurs</soThat>
+    <tasks>
+      <task id="1" ac="1.1.1">
+        <title>Créer la structure monorepo de base</title>
+        <subtasks>
+          <subtask>Initialiser projet root avec npm init -y</subtask>
+          <subtask>Créer dossiers apps/frontend, apps/backend, packages/shared</subtask>
+          <subtask>Configurer package.json root avec scripts globaux</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="1.1.2">
+        <title>Configurer Next.js 16 App Router</title>
+        <subtasks>
+          <subtask>Installer Next.js 16, React 19, TypeScript dans apps/frontend</subtask>
+          <subtask>Créer structure App Router (app/ directory)</subtask>
+          <subtask>Configurer next.config.js</subtask>
+          <subtask>Créer page d'accueil basique (app/page.tsx)</subtask>
+          <subtask>Vérifier démarrage sur port 3000</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="1.1.3">
+        <title>Configurer Fastify backend</title>
+        <subtasks>
+          <subtask>Installer Fastify, TypeScript, tsx dans apps/backend</subtask>
+          <subtask>Créer src/index.ts et src/app.ts</subtask>
+          <subtask>Implémenter endpoint GET /health</subtask>
+          <subtask>Configurer démarrage sur port 3001</subtask>
+          <subtask>Vérifier health check retourne 200 OK</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="1.1.4">
+        <title>Configurer TypeScript strict sur tous les packages</title>
+        <subtasks>
+          <subtask>Créer tsconfig.json root avec strict: true</subtask>
+          <subtask>Configurer tsconfig.json pour frontend (extends root)</subtask>
+          <subtask>Configurer tsconfig.json pour backend (extends root)</subtask>
+          <subtask>Configurer tsconfig.json pour shared (extends root)</subtask>
+          <subtask>Vérifier compilation sans erreur avec npm run build</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="1.1.5">
+        <title>Configurer ESLint et Prettier globalement</title>
+        <subtasks>
+          <subtask>Installer ESLint, Prettier, plugins TypeScript</subtask>
+          <subtask>Créer .eslintrc.json root avec règles strictes</subtask>
+          <subtask>Créer .prettierrc avec style guide projet</subtask>
+          <subtask>Ajouter scripts lint/format dans package.json root</subtask>
+          <subtask>Vérifier npm run lint et npm run format fonctionnent</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="1.1.1">
+        <title>Créer package shared basique</title>
+        <subtasks>
+          <subtask>Initialiser packages/shared/package.json</subtask>
+          <subtask>Créer src/types/index.ts avec types de base</subtask>
+          <subtask>Créer src/constants.ts</subtask>
+          <subtask>Configurer build TypeScript vers dist/</subtask>
+          <subtask>Tester import depuis frontend et backend</subtask>
+        </subtasks>
+      </task>
+      <task id="7" ac="1.1.2, 1.1.3">
+        <title>Configurer scripts npm pour le développement</title>
+        <subtasks>
+          <subtask>Ajouter npm run dev:frontend (démarre Next.js)</subtask>
+          <subtask>Ajouter npm run dev:backend (démarre Fastify)</subtask>
+          <subtask>Ajouter npm run dev (démarre les 2 en parallèle avec concurrently)</subtask>
+          <subtask>Ajouter npm run build (build tous les packages)</subtask>
+        </subtasks>
+      </task>
+      <task id="8" ac="all">
+        <title>Documentation et fichiers de configuration</title>
+        <subtasks>
+          <subtask>Créer README.md root avec instructions setup</subtask>
+          <subtask>Créer .gitignore (node_modules, .env, dist, .next)</subtask>
+          <subtask>Créer .env.example pour backend (placeholders)</subtask>
+          <subtask>Documenter structure monorepo dans README</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1.1.1">
+      <title>Structure monorepo créée</title>
+      <description>Given un nouveau projet vide, When j'initialise le monorepo, Then la structure apps/frontend, apps/backend, packages/shared existe</description>
+    </criterion>
+    <criterion id="1.1.2">
+      <title>Frontend Next.js 16 configuré</title>
+      <description>Le frontend utilise Next.js 16 avec App Router, la structure app/ existe (pas pages/), npm run dev démarre le serveur sur port 3000</description>
+    </criterion>
+    <criterion id="1.1.3">
+      <title>Backend Fastify configuré</title>
+      <description>Le backend utilise Fastify avec TypeScript, npm run dev:backend démarre le serveur sur port 3001, endpoint /health retourne 200 OK</description>
+    </criterion>
+    <criterion id="1.1.4">
+      <title>TypeScript strict activé</title>
+      <description>TypeScript strict mode est activé dans tous les packages, npm run build compile sans erreur TypeScript</description>
+    </criterion>
+    <criterion id="1.1.5">
+      <title>Linting et formatting configurés</title>
+      <description>ESLint + Prettier sont configurés globalement, npm run lint exécute sans erreur, npm run format formate le code</description>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture AppsByMCI V2</title>
+        <section>Structure du projet</section>
+        <snippet>Définit la structure monorepo complète avec apps/frontend (Next.js 16 App Router), apps/backend (Fastify), packages/shared. Monorepo NPM sans workspaces pour compatibilité déploiement Azure.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture AppsByMCI V2</title>
+        <section>Décision : Initialisation du projet</section>
+        <snippet>Configuration manuelle (from scratch) choisie pour contrôle total, pas de bloat, apprentissage optimal. Setup manuel du monorepo Next.js 16 + Fastify requis.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Infrastructure</title>
+        <section>Story 1.1 Acceptance Criteria</section>
+        <snippet>AC détaillés pour monorepo setup : structure créée, Next.js 16 configuré, Fastify configuré, TypeScript strict activé, ESLint/Prettier configurés. Tests E2E manuels requis.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Infrastructure</title>
+        <section>NPM Dependencies</section>
+        <snippet>Dépendances détaillées pour Frontend (Next.js ^15.1.0, React ^19.0.0, TypeScript ^5.3.0), Backend (Fastify ^4.26.0, tsx ^4.7.0), Shared (TypeScript ^5.3.0 uniquement).</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Infrastructure</title>
+        <section>Workflows - Setup Initial Développeur</section>
+        <snippet>Workflow complet : clone repository, install dependencies (manual par app), configure environment variables, build shared package, start dev servers, verify setup. Temps estimé 15-20 minutes.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <!-- Aucun code existant - projet vierge (Story 1.1 crée la base) -->
+    </code>
+    <dependencies>
+      <node>
+        <frontend>
+          <package name="next" version="^15.1.0" />
+          <package name="react" version="^19.0.0" />
+          <package name="react-dom" version="^19.0.0" />
+          <package name="typescript" version="^5.3.0" dev="true" />
+          <package name="@types/node" version="^20.11.0" dev="true" />
+          <package name="@types/react" version="^19.0.0" dev="true" />
+          <package name="@types/react-dom" version="^19.0.0" dev="true" />
+          <package name="eslint" version="^8.56.0" dev="true" />
+          <package name="eslint-config-next" version="^15.1.0" dev="true" />
+        </frontend>
+        <backend>
+          <package name="fastify" version="^4.26.0" />
+          <package name="dotenv" version="^16.4.0" />
+          <package name="typescript" version="^5.3.0" dev="true" />
+          <package name="@types/node" version="^20.11.0" dev="true" />
+          <package name="tsx" version="^4.7.0" dev="true" />
+          <package name="eslint" version="^8.56.0" dev="true" />
+          <package name="prettier" version="^3.2.0" dev="true" />
+        </backend>
+        <shared>
+          <package name="typescript" version="^5.3.0" dev="true" />
+        </shared>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <type>architecture</type>
+      <description>Monorepo NPM SANS workspaces - Contrainte Azure déploiement. Installation dépendances manuelle par app (npm install --prefix apps/frontend).</description>
+    </constraint>
+    <constraint>
+      <type>typescript</type>
+      <description>TypeScript strict mode OBLIGATOIRE sur tous les packages. Target: ES2022, module: commonjs, strict: true.</description>
+    </constraint>
+    <constraint>
+      <type>versions</type>
+      <description>Node.js v20.x LTS requis. Next.js 16 (App Router, PAS Pages Router). React 19. Fastify 4.26+.</description>
+    </constraint>
+    <constraint>
+      <type>code-quality</type>
+      <description>ESLint avec règles strictes : no-hardcoded-credentials (error), @typescript-eslint/no-explicit-any (warn). Prettier avec semi: false, singleQuote: true, tabWidth: 2.</description>
+    </constraint>
+    <constraint>
+      <type>shared-package</type>
+      <description>Package shared utilisé via npm link en développement local. Publication Azure Artifacts pour production (post-Epic 1).</description>
+    </constraint>
+    <constraint>
+      <type>ports</type>
+      <description>Frontend port 3000, Backend port 3001. Vérifier disponibilité avant démarrage.</description>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>GET /health</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /health → 200 OK { status: 'healthy', timestamp: ISO8601 }</signature>
+      <path>apps/backend/src/app.ts</path>
+      <description>Health check endpoint backend Fastify. Doit retourner 200 OK avec status et timestamp.</description>
+    </interface>
+    <interface>
+      <name>Package @appsbymci/shared</name>
+      <kind>NPM package</kind>
+      <signature>export { types, constants, utils }</signature>
+      <path>packages/shared/src/index.ts</path>
+      <description>Package partagé frontend/backend. Exports types TypeScript, constants, utilitaires. Build vers dist/ avec tsc.</description>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Tests E2E manuels pour Story 1.1 (infrastructure setup). Vérifier : (1) npm run build compile sans erreur, (2) npm run lint passe, (3) npm run dev démarre frontend port 3000, (4) npm run dev:backend démarre backend port 3001, (5) curl http://localhost:3001/health retourne 200 OK. Pas de tests unitaires requis pour setup infrastructure.</standards>
+    <locations>
+      <location>apps/backend/tests/</location>
+      <location>apps/frontend/__tests__/</location>
+    </locations>
+    <ideas>
+      <idea ac="1.1.1">Test E2E : Vérifier existence dossiers apps/frontend, apps/backend, packages/shared après initialisation</idea>
+      <idea ac="1.1.2">Test E2E : Démarrer frontend avec npm run dev, vérifier serveur écoute sur port 3000, accès http://localhost:3000 retourne 200</idea>
+      <idea ac="1.1.3">Test E2E : Démarrer backend avec npm run dev:backend, vérifier serveur écoute sur port 3001, curl /health retourne 200 OK</idea>
+      <idea ac="1.1.4">Test build : Exécuter npm run build dans chaque package, vérifier aucune erreur TypeScript, dist/ créé</idea>
+      <idea ac="1.1.5">Test lint : Exécuter npm run lint, vérifier exit code 0, npm run format modifie fichiers selon règles Prettier</idea>
+    </ideas>
+  </tests>
+</story-context>
