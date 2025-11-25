@@ -3,8 +3,6 @@
 
 import {
   BlobServiceClient,
-  ContainerClient,
-  BlockBlobClient,
   StorageSharedKeyCredential,
   generateBlobSASQueryParameters,
   BlobSASPermissions,

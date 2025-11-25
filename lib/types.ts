@@ -1,4 +1,4 @@
-// Types partagés entre frontend et backend
+// Shared types between frontend and backend
 
 // User types
 export type UserRole = 'admin' | 'editor' | 'viewer'
@@ -64,15 +64,18 @@ export interface Session {
   updatedAt: Date
 }
 
+// AI Model types
 export type AIProvider = 'openai' | 'google'
+
+export interface AICapabilities {
+  requiresImage: boolean
+  supportsEdit: boolean
+  maxSize: number // Max pixels (1024 for most models)
+}
 
 export interface AIModel {
   id: string
   name: string
   provider: AIProvider
-  capabilities: {
-    requiresImage: boolean
-    supportsEdit: boolean
-    maxSize?: number
-  }
+  capabilities: AICapabilities
 }
