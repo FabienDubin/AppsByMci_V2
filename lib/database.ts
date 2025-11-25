@@ -1,5 +1,6 @@
 // Database connection service with retry logic and singleton pattern
 import mongoose from 'mongoose'
+import { logger } from '@/lib/logger'
 
 // Global variable to cache the connection in serverless environment
 interface MongooseCache {
@@ -38,20 +39,20 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export async function connectDatabase(): Promise<typeof mongoose> {
   // Return existing connection if available
   if (cached.conn) {
-    console.log('[Database] Using cached connection')
+    logger.debug({ msg: 'Using cached database connection' })
     return cached.conn
   }
 
   // Return existing promise if connection is in progress
   if (cached.promise) {
-    console.log('[Database] Connection in progress, waiting...')
+    logger.debug({ msg: 'Database connection in progress, waiting...' })
     return cached.promise
   }
 
   const connectionString = process.env.MONGODB_CONNECTION_STRING
 
   if (!connectionString) {
-    console.error('[Database] ERROR: MONGODB_CONNECTION_STRING not defined in environment variables')
+    logger.fatal({ msg: 'MONGODB_CONNECTION_STRING not defined in environment variables' })
     process.exit(1)
   }
 
@@ -65,38 +66,41 @@ export async function connectDatabase(): Promise<typeof mongoose> {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[Database] Connecting to database... (attempt ${attempt}/${maxRetries})`)
+        logger.info({ msg: 'Connecting to database...', attempt, maxRetries })
         const startTime = Date.now()
 
         const conn = await mongoose.connect(connectionString, mongooseOptions)
 
         const connectionTime = Date.now() - startTime
-        console.log(`[Database] Database connected successfully (${connectionTime}ms)`)
+        logger.info({ msg: 'Database connected successfully', connectionTime: `${connectionTime}ms` })
 
         // Cache the connection
         cached.conn = conn
         return conn
       } catch (error) {
         lastError = error as Error
-        console.warn(
-          `[Database] WARN: Connection attempt ${attempt}/${maxRetries} failed:`,
-          lastError.message
-        )
+        logger.warn({
+          msg: 'Database connection attempt failed',
+          attempt,
+          maxRetries,
+          error: lastError.message,
+        })
 
         // If not last attempt, wait before retrying
         if (attempt < maxRetries) {
           const delay = backoffDelays[attempt - 1]
-          console.log(`[Database] Retrying in ${delay}ms...`)
+          logger.info({ msg: 'Retrying database connection...', delay: `${delay}ms` })
           await sleep(delay)
         }
       }
     }
 
     // All retries failed
-    console.error(
-      `[Database] ERROR: Failed to connect to database after ${maxRetries} attempts`,
-      lastError
-    )
+    logger.fatal({
+      msg: 'Failed to connect to database after all attempts',
+      maxRetries,
+      error: lastError?.message,
+    })
     process.exit(1)
   })()
 
@@ -114,13 +118,13 @@ export async function disconnectDatabase(): Promise<void> {
   }
 
   try {
-    console.log('[Database] Disconnecting from database...')
+    logger.info({ msg: 'Disconnecting from database...' })
     await mongoose.disconnect()
     cached.conn = null
     cached.promise = null
-    console.log('[Database] Database disconnected successfully')
+    logger.info({ msg: 'Database disconnected successfully' })
   } catch (error) {
-    console.error('[Database] ERROR: Failed to disconnect from database:', error)
+    logger.error({ msg: 'Failed to disconnect from database', error })
     throw error
   }
 }

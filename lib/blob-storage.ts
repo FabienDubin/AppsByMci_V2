@@ -1,6 +1,7 @@
 // Azure Blob Storage Service
 // Manages uploads, downloads, and signed URL generation (SAS tokens)
 
+import { logger } from '@/lib/logger'
 import {
   BlobServiceClient,
   StorageSharedKeyCredential,
@@ -50,16 +51,16 @@ class BlobStorageService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      console.log("[Blob Storage] Already initialized");
+      logger.debug({ msg: 'Blob Storage already initialized' });
       return;
     }
 
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
     if (!connectionString) {
-      console.warn(
-        "[Blob Storage] AZURE_STORAGE_CONNECTION_STRING not found - Blob Storage unavailable"
-      );
+      logger.warn({
+        msg: 'AZURE_STORAGE_CONNECTION_STRING not found - Blob Storage unavailable',
+      });
       return;
     }
 
@@ -79,17 +80,15 @@ class BlobStorageService {
       this.blobServiceClient =
         BlobServiceClient.fromConnectionString(connectionString);
 
-      console.log(
-        `[Blob Storage] Connecting to account: ${this.accountName}...`
-      );
+      logger.info({ msg: 'Initializing Blob Storage...', accountName: this.accountName });
 
       // Connection test (list containers)
       await this.blobServiceClient.listContainers().next();
 
       this.initialized = true;
-      console.log("[Blob Storage] Connected successfully");
+      logger.info({ msg: 'Blob Storage initialized successfully' });
     } catch (error) {
-      console.error("[Blob Storage] Connection failed:", error);
+      logger.error({ msg: 'Blob Storage connection failed', error });
       throw error;
     }
   }
@@ -107,9 +106,7 @@ class BlobStorageService {
     }
 
     if (!this.blobServiceClient) {
-      console.warn(
-        "[Blob Storage] Not initialized - skipping container creation"
-      );
+      logger.warn({ msg: 'Blob Storage not initialized - skipping container creation' });
       return;
     }
 
@@ -132,24 +129,21 @@ class BlobStorageService {
           await containerClient.create(
             config.accessType ? { access: config.accessType } : undefined
           );
-          console.log(
-            `[Blob Storage] Container created: ${config.name} (access: ${config.accessType || "private"})`
-          );
+          logger.info({
+            msg: 'Container created',
+            container: config.name,
+            access: config.accessType || 'private',
+          });
         } else {
-          console.log(
-            `[Blob Storage] Container already exists: ${config.name}`
-          );
+          logger.debug({ msg: 'Container already exists', container: config.name });
         }
       } catch (error) {
-        console.error(
-          `[Blob Storage] Error creating container ${config.name}:`,
-          error
-        );
+        logger.error({ msg: 'Error creating container', container: config.name, error });
         throw error;
       }
     }
 
-    console.log("[Blob Storage] All containers verified");
+    logger.info({ msg: 'All Blob Storage containers verified' });
   }
 
   /**
@@ -186,16 +180,14 @@ class BlobStorageService {
         metadata: options.metadata,
       });
 
-      console.log(
-        `[Blob Storage] File uploaded: ${containerName}/${blobName}`
-      );
+      logger.info({ msg: 'File uploaded', container: containerName, blob: blobName });
 
       return {
         url: blockBlobClient.url,
         blobName,
       };
     } catch (error) {
-      console.error(`[Blob Storage] Upload failed:`, error);
+      logger.error({ msg: 'File upload failed', container: containerName, blob: blobName, error });
       throw error;
     }
   }
@@ -235,19 +227,15 @@ class BlobStorageService {
         chunks.push(Buffer.from(chunk));
       }
 
-      console.log(
-        `[Blob Storage] File downloaded: ${containerName}/${blobName}`
-      );
+      logger.info({ msg: 'File downloaded', container: containerName, blob: blobName });
 
       return Buffer.concat(chunks);
     } catch (error: any) {
       if (error.statusCode === 404) {
-        console.error(
-          `[Blob Storage] Blob not found: ${containerName}/${blobName}`
-        );
+        logger.warn({ msg: 'Blob not found', container: containerName, blob: blobName });
         throw new Error(`Blob not found: ${containerName}/${blobName}`);
       }
-      console.error(`[Blob Storage] Download failed:`, error);
+      logger.error({ msg: 'File download failed', container: containerName, blob: blobName, error });
       throw error;
     }
   }
@@ -305,20 +293,26 @@ class BlobStorageService {
       const sasUrl = `${blockBlobClient.url}?${sasToken}`;
 
       const duration = Date.now() - startTime;
-      console.log(
-        `[Blob Storage] SAS URL generated for ${containerName}/${blobName} (expires in ${expiryMinutes} min, took ${duration}ms)`
-      );
+      logger.info({
+        msg: 'SAS URL generated',
+        container: containerName,
+        blob: blobName,
+        expiryMinutes,
+        duration: `${duration}ms`,
+      });
 
       // NFR3 verification: generation < 500ms
       if (duration > 500) {
-        console.warn(
-          `[Blob Storage] SAS generation took ${duration}ms (> 500ms threshold)`
-        );
+        logger.warn({
+          msg: 'SAS generation exceeded threshold',
+          duration: `${duration}ms`,
+          threshold: '500ms',
+        });
       }
 
       return sasUrl;
     } catch (error) {
-      console.error(`[Blob Storage] SAS URL generation failed:`, error);
+      logger.error({ msg: 'SAS URL generation failed', container: containerName, blob: blobName, error });
       throw error;
     }
   }
@@ -344,11 +338,9 @@ class BlobStorageService {
 
       await blockBlobClient.deleteIfExists();
 
-      console.log(
-        `[Blob Storage] File deleted: ${containerName}/${blobName}`
-      );
+      logger.info({ msg: 'File deleted', container: containerName, blob: blobName });
     } catch (error) {
-      console.error(`[Blob Storage] Delete failed:`, error);
+      logger.error({ msg: 'File delete failed', container: containerName, blob: blobName, error });
       throw error;
     }
   }
@@ -382,13 +374,16 @@ class BlobStorageService {
         blobNames.push(blob.name);
       }
 
-      console.log(
-        `[Blob Storage] Listed ${blobNames.length} files in ${containerName}${prefix ? ` (prefix: ${prefix})` : ""}`
-      );
+      logger.debug({
+        msg: 'Files listed',
+        container: containerName,
+        prefix: prefix || null,
+        count: blobNames.length,
+      });
 
       return blobNames;
     } catch (error) {
-      console.error(`[Blob Storage] List files failed:`, error);
+      logger.error({ msg: 'List files failed', container: containerName, error });
       throw error;
     }
   }

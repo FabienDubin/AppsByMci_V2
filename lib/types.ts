@@ -1,4 +1,5 @@
 // Shared types between frontend and backend
+import { AI_PROVIDERS } from './constants'
 
 // User types
 export type UserRole = 'admin' | 'editor' | 'viewer'
@@ -65,7 +66,7 @@ export interface Session {
 }
 
 // AI Model types
-export type AIProvider = 'openai' | 'google'
+export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS]
 
 export interface AICapabilities {
   requiresImage: boolean
