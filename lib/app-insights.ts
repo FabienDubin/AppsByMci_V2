@@ -1,38 +1,26 @@
 /**
  * Azure Application Insights initialization
  *
- * IMPORTANT ARCHITECTURE DECISION (Story 1.6):
- * =============================================
+ * ARCHITECTURE DECISION (Story 1.6):
+ * ==================================
  *
  * This file is SEPARATE from logger.ts because:
  * - The `applicationinsights` package uses Node.js native modules
  * - Next.js Edge Middleware runs in Edge Runtime (not Node.js)
  * - Importing applicationinsights in any file used by middleware crashes the app
  *
+ * CONDITIONAL ACTIVATION:
+ * - Development: App Insights is disabled (Turbopack incompatibility)
+ * - Production: Enabled if AZURE_APPINSIGHTS_CONNECTION_STRING is set
+ *
  * SOLUTION:
- * - logger.ts: Pure Pino only → safe for middleware + all server code
- * - app-insights.ts: Azure SDK → only for API routes and server-side code
- *
- * HOW TO USE (when deploying to Azure):
- * 1. Set AZURE_APPINSIGHTS_CONNECTION_STRING in your .env
- * 2. Call initializeAppInsights() once at app startup (e.g., in a layout.tsx or API route)
- * 3. DO NOT import this file in middleware.ts or lib/middleware/*
- *
- * Example usage in an API route:
- * ```typescript
- * import { initializeAppInsights } from '@/lib/app-insights'
- *
- * // Initialize once (safe to call multiple times)
- * initializeAppInsights()
- *
- * export async function GET() {
- *   // Your API logic
- * }
- * ```
+ * - logger.ts: Pure Pino only -> safe for middleware + all server code
+ * - app-insights.ts: Azure SDK -> only for production API routes
+ * - instrumentation.ts: Entry point that conditionally imports this module
  *
  * Connection string format:
  * InstrumentationKey=<guid>;IngestionEndpoint=https://<region>.applicationinsights.azure.com/
- * Source: Azure Portal → Application Insights → Properties → Connection String
+ * Source: Azure Portal -> Application Insights -> Properties -> Connection String
  */
 
 import * as appInsights from 'applicationinsights'
@@ -46,6 +34,12 @@ let initialized = false
  */
 export function initializeAppInsights(): void {
   if (initialized) {
+    return
+  }
+
+  // Skip in development - only enable in production
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug({ msg: 'Application Insights disabled in development mode' })
     return
   }
 
