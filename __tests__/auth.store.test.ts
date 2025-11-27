@@ -118,6 +118,55 @@ describe('authStore', () => {
     })
   })
 
+  describe('updateUser', () => {
+    it('should update user info without changing token', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Old Name',
+        role: 'admin' as const,
+      }
+      const mockToken = 'mock.jwt.token'
+
+      useAuthStore.getState().setAuth(mockUser, mockToken)
+      useAuthStore.getState().updateUser({ name: 'New Name' })
+
+      const state = useAuthStore.getState()
+      expect(state.user).toEqual({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'New Name',
+        role: 'admin',
+      })
+      expect(state.accessToken).toBe(mockToken) // Token unchanged
+      expect(state.isAuthenticated).toBe(true)
+    })
+
+    it('should handle partial user updates', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        role: 'admin' as const,
+      }
+
+      useAuthStore.getState().setAuth(mockUser, 'token')
+      useAuthStore.getState().updateUser({ name: 'Updated Name' })
+
+      const state = useAuthStore.getState()
+      expect(state.user?.name).toBe('Updated Name')
+      expect(state.user?.email).toBe('test@example.com') // Other fields unchanged
+      expect(state.user?.role).toBe('admin')
+    })
+
+    it('should not update if no user is set', () => {
+      useAuthStore.getState().updateUser({ name: 'Test Name' })
+
+      const state = useAuthStore.getState()
+      expect(state.user).toBeNull()
+    })
+  })
+
   describe('getTokenExpiration', () => {
     it('should return null when no token is set', () => {
       const expiration = useAuthStore.getState().getTokenExpiration()

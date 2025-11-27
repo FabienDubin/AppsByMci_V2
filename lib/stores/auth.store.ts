@@ -21,6 +21,7 @@ interface AuthActions {
   clearAuth: () => void
   getAccessToken: () => string | null
   updateAccessToken: (token: string) => void
+  updateUser: (user: Partial<UserInfo>) => void
   getTokenExpiration: () => number | null
 }
 
@@ -87,6 +88,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    */
   updateAccessToken: (token: string) => {
     set({ accessToken: token })
+  },
+
+  /**
+   * Update user info without touching token (for profile updates)
+   */
+  updateUser: (userUpdates: Partial<UserInfo>) => {
+    const currentUser = get().user
+    if (currentUser) {
+      set({
+        user: {
+          ...currentUser,
+          ...userUpdates,
+        },
+      })
+    }
   },
 
   /**

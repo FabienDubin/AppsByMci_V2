@@ -2,26 +2,24 @@
 
 import { useAuthStore } from '@/lib/stores/auth.store'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, clearAuth } = useAuthStore()
+  const { user, clearAuth } = useAuthStore()
   const router = useRouter()
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, router])
 
   const handleLogout = () => {
     clearAuth()
     router.push('/login')
   }
 
-  if (!isAuthenticated) {
-    return null
+  // AuthProvider ensures we're authenticated
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
   }
 
   return (

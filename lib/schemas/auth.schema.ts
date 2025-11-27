@@ -22,6 +22,25 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+// Update profile validation schema
+export const updateProfileSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name cannot exceed 100 characters'),
+})
+
+// Change password validation schema
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters long')
+    .regex(
+      passwordRegex,
+      'Password must contain at least one uppercase letter, one digit and one special character'
+    ),
+})
+
 // Inferred types
 export type CreateUser = z.infer<typeof createUserSchema>
 export type Login = z.infer<typeof loginSchema>
+export type UpdateProfile = z.infer<typeof updateProfileSchema>
+export type ChangePassword = z.infer<typeof changePasswordSchema>

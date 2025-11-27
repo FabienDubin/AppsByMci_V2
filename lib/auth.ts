@@ -36,3 +36,20 @@ export const generateAccessToken = (payload: {
 export const generateRefreshToken = (): string => {
   return crypto.randomUUID()
 }
+
+// Verify an access token (JWT) and return its payload
+export const verifyAccessToken = (
+  token: string
+): { userId: string; email: string; role: string } => {
+  const secret = getJwtSecret()
+  try {
+    const payload = jwt.verify(token, secret) as {
+      userId: string
+      email: string
+      role: string
+    }
+    return payload
+  } catch (error) {
+    throw new Error('Invalid or expired access token')
+  }
+}
