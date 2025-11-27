@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-// Password regex: min 8 chars, 1 uppercase, 1 digit, 1 special character
+// Password requirements: min 8 chars, 1 uppercase, 1 digit, 1 special char
 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
 
-// User creation schema
+// Registration validation schema
 export const createUserSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z
@@ -16,12 +16,12 @@ export const createUserSchema = z.object({
   name: z.string().max(100).optional(),
 })
 
-// Login schema
+// Login validation schema
 export const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(1, 'Password is required'),
 })
 
-// Inferred types from schemas
+// Inferred types
 export type CreateUser = z.infer<typeof createUserSchema>
 export type Login = z.infer<typeof loginSchema>

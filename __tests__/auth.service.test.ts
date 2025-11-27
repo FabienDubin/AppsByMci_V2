@@ -1,12 +1,11 @@
 import { AuthService } from '@/lib/services/auth.service'
 import User from '@/models/User.model'
+import Session from '@/models/Session.model'
 import * as authHelpers from '@/lib/auth'
 
-// Mock the User model
 jest.mock('@/models/User.model')
-// Mock the auth helpers
+jest.mock('@/models/Session.model')
 jest.mock('@/lib/auth')
-// Mock the logger
 jest.mock('@/lib/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -17,6 +16,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 
 const mockUser = User as jest.Mocked<typeof User>
+const mockSession = Session as jest.Mocked<typeof Session>
 const mockAuthHelpers = authHelpers as jest.Mocked<typeof authHelpers>
 
 describe('AuthService', () => {
@@ -48,7 +48,7 @@ describe('AuthService', () => {
         updatedAt: new Date(),
       }
 
-      mockUser.findOne.mockResolvedValue(null) // No existing user
+      mockUser.findOne.mockResolvedValue(null)
       mockUser.create.mockResolvedValue(mockCreatedUser as any)
 
       const result = await authService.createUser(validEmail, validPassword, validName)
@@ -183,6 +183,118 @@ describe('AuthService', () => {
       await authService.findUserByEmail('TEST@EXAMPLE.COM')
 
       expect(mockUser.findOne).toHaveBeenCalledWith({ email: 'test@example.com' })
+    })
+  })
+
+  describe('login', () => {
+    const validEmail = 'test@example.com'
+    const validPassword = 'Test123!@#'
+    const hashedPassword = '$2b$10$hashedpassword'
+    const hashedRefreshToken = '$2b$10$hashedrefreshtoken'
+    const mockAccessToken = 'mock.jwt.token'
+    const mockRefreshToken = 'mock-uuid-refresh-token'
+
+    const mockExistingUser = {
+      _id: { toString: () => 'user-id-123' },
+      email: validEmail,
+      passwordHash: hashedPassword,
+      name: 'Test User',
+      role: 'admin' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    beforeEach(() => {
+      mockAuthHelpers.comparePassword.mockResolvedValue(true)
+      mockAuthHelpers.generateAccessToken.mockReturnValue(mockAccessToken)
+      mockAuthHelpers.generateRefreshToken.mockReturnValue(mockRefreshToken)
+      mockAuthHelpers.hashPassword.mockResolvedValue(hashedRefreshToken)
+      mockSession.create.mockResolvedValue({} as any)
+    })
+
+    it('should login successfully with valid credentials', async () => {
+      mockUser.findOne.mockResolvedValue(mockExistingUser as any)
+
+      const result = await authService.login(validEmail, validPassword)
+
+      expect(result).toEqual({
+        accessToken: mockAccessToken,
+        refreshToken: mockRefreshToken,
+        user: {
+          id: 'user-id-123',
+          email: validEmail,
+          name: 'Test User',
+          role: 'admin',
+          createdAt: mockExistingUser.createdAt,
+        },
+      })
+      expect(mockAuthHelpers.comparePassword).toHaveBeenCalledWith(validPassword, hashedPassword)
+      expect(mockAuthHelpers.generateAccessToken).toHaveBeenCalledWith({
+        userId: 'user-id-123',
+        email: validEmail,
+        role: 'admin',
+      })
+      expect(mockSession.create).toHaveBeenCalled()
+    })
+
+    it('should throw AUTH_1001 error if email does not exist', async () => {
+      mockUser.findOne.mockResolvedValue(null)
+
+      await expect(authService.login(validEmail, validPassword)).rejects.toMatchObject({
+        message: 'Email ou mot de passe incorrect',
+        code: 'AUTH_1001',
+      })
+
+      expect(mockAuthHelpers.comparePassword).not.toHaveBeenCalled()
+      expect(mockSession.create).not.toHaveBeenCalled()
+    })
+
+    it('should throw AUTH_1001 error if password is incorrect', async () => {
+      mockUser.findOne.mockResolvedValue(mockExistingUser as any)
+      mockAuthHelpers.comparePassword.mockResolvedValue(false)
+
+      await expect(authService.login(validEmail, 'wrongpassword')).rejects.toMatchObject({
+        message: 'Email ou mot de passe incorrect',
+        code: 'AUTH_1001',
+      })
+
+      expect(mockAuthHelpers.comparePassword).toHaveBeenCalledWith('wrongpassword', hashedPassword)
+      expect(mockSession.create).not.toHaveBeenCalled()
+    })
+
+    it('should hash refresh token before storing in session', async () => {
+      mockUser.findOne.mockResolvedValue(mockExistingUser as any)
+
+      await authService.login(validEmail, validPassword)
+
+      // Verify refresh token is hashed before storage
+      expect(mockAuthHelpers.hashPassword).toHaveBeenCalledWith(mockRefreshToken)
+      expect(mockSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          refreshToken: hashedRefreshToken,
+        })
+      )
+    })
+
+    it('should create session with correct expiration (7 days)', async () => {
+      mockUser.findOne.mockResolvedValue(mockExistingUser as any)
+
+      await authService.login(validEmail, validPassword)
+
+      const sessionCreateCall = mockSession.create.mock.calls[0][0]
+      const expiresAt = sessionCreateCall.expiresAt as Date
+      const now = new Date()
+      const daysDiff = Math.round((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+      expect(daysDiff).toBe(7)
+    })
+
+    it('should not return passwordHash in user response', async () => {
+      mockUser.findOne.mockResolvedValue(mockExistingUser as any)
+
+      const result = await authService.login(validEmail, validPassword)
+
+      expect(result.user).not.toHaveProperty('passwordHash')
     })
   })
 })
