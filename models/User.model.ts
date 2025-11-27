@@ -13,6 +13,7 @@ export interface IUser extends Document {
   _id: mongoose.Types.ObjectId
   email: string
   passwordHash: string
+  name?: string
   role: UserRole
   createdAt: Date
   updatedAt: Date
@@ -38,6 +39,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: [true, 'Password hash is required']
     },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Name cannot exceed 100 characters']
+    },
     role: {
       type: String,
       enum: {
@@ -54,8 +60,7 @@ const UserSchema = new Schema<IUser>(
   }
 )
 
-// Create unique index on email
-UserSchema.index({ email: 1 }, { unique: true })
+// Note: unique index on email is already created via `unique: true` in schema definition
 
 /**
  * Export User model
