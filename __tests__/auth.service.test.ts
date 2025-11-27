@@ -377,4 +377,92 @@ describe('AuthService', () => {
       })
     })
   })
+
+  describe('logout', () => {
+    const validRefreshToken = 'valid-refresh-token-uuid'
+    const hashedRefreshToken = '$2b$10$hashedrefreshtoken'
+
+    const mockSession = {
+      _id: { toString: () => 'session-id-123' },
+      userId: 'user-id-123',
+      refreshToken: hashedRefreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    }
+
+    it('should delete session when refresh token matches', async () => {
+      // Mock Session.find to return session
+      ;(Session.find as jest.Mock).mockResolvedValue([mockSession])
+      mockAuthHelpers.comparePassword.mockResolvedValue(true)
+      mockAuthHelpers.hashPassword.mockResolvedValue(hashedRefreshToken)
+      ;(Session.findByIdAndDelete as jest.Mock).mockResolvedValue(mockSession)
+
+      await authService.logout(validRefreshToken)
+
+      expect(Session.find).toHaveBeenCalled()
+      expect(mockAuthHelpers.comparePassword).toHaveBeenCalledWith(validRefreshToken, hashedRefreshToken)
+      expect(Session.findByIdAndDelete).toHaveBeenCalledWith(mockSession._id)
+    })
+
+    it('should be idempotent - succeed even if session does not exist', async () => {
+      // Mock Session.find to return no sessions
+      ;(Session.find as jest.Mock).mockResolvedValue([])
+      mockAuthHelpers.hashPassword.mockResolvedValue(hashedRefreshToken)
+
+      // Should not throw error
+      await expect(authService.logout(validRefreshToken)).resolves.toBeUndefined()
+
+      expect(Session.find).toHaveBeenCalled()
+      expect(Session.findByIdAndDelete).not.toHaveBeenCalled()
+    })
+
+    it('should be idempotent - succeed if refresh token does not match any session', async () => {
+      const anotherMockSession = {
+        _id: { toString: () => 'session-id-456' },
+        userId: 'user-id-456',
+        refreshToken: '$2b$10$differenthash',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      }
+
+      // Mock Session.find to return different session
+      ;(Session.find as jest.Mock).mockResolvedValue([anotherMockSession])
+      mockAuthHelpers.comparePassword.mockResolvedValue(false) // Token doesn't match
+      mockAuthHelpers.hashPassword.mockResolvedValue(hashedRefreshToken)
+
+      // Should not throw error
+      await expect(authService.logout(validRefreshToken)).resolves.toBeUndefined()
+
+      expect(Session.findByIdAndDelete).not.toHaveBeenCalled()
+    })
+
+    it('should delete correct session when multiple sessions exist', async () => {
+      const session1 = {
+        _id: { toString: () => 'session-1' },
+        userId: 'user-id-1',
+        refreshToken: '$2b$10$hash1',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      }
+
+      const session2 = {
+        _id: { toString: () => 'session-2' },
+        userId: 'user-id-2',
+        refreshToken: hashedRefreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      }
+
+      // Mock Session.find to return multiple sessions
+      ;(Session.find as jest.Mock).mockResolvedValue([session1, session2])
+      mockAuthHelpers.hashPassword.mockResolvedValue(hashedRefreshToken)
+      // First compare returns false, second returns true
+      mockAuthHelpers.comparePassword
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true)
+      ;(Session.findByIdAndDelete as jest.Mock).mockResolvedValue(session2)
+
+      await authService.logout(validRefreshToken)
+
+      // Should delete session2 only
+      expect(Session.findByIdAndDelete).toHaveBeenCalledWith(session2._id)
+      expect(Session.findByIdAndDelete).toHaveBeenCalledTimes(1)
+    })
+  })
 })

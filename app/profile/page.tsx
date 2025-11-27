@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { LogoutButton } from '@/components/auth/logout-button'
 
 // Password requirements: min 8 chars, 1 uppercase, 1 digit, 1 special char
 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
@@ -325,6 +326,19 @@ export default function ProfilePage() {
               </form>
             </CollapsibleContent>
           </Collapsible>
+        </Card>
+
+        {/* Logout Section */}
+        <Card className="p-6 mt-6">
+          <h2 className="text-lg font-semibold mb-4">Actions du compte</h2>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Déconnectez-vous de votre compte pour sécuriser votre session.
+              </p>
+              <LogoutButton variant="destructive" showConfirmation={true} />
+            </div>
+          </div>
         </Card>
 
         {/* Back to Dashboard */}

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 
@@ -33,7 +33,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
   const [isLoading, setIsLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const setAuth = useAuthStore((state) => state.setAuth)
+
+  // Get redirect URL and message from query params
+  const redirectUrl = searchParams.get('redirect') || '/dashboard'
+  const message = searchParams.get('message')
 
   const {
     register,
@@ -44,6 +49,15 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     resolver: zodResolver(loginFormSchema),
     mode: 'onChange',
   })
+
+  // Show message from middleware redirect on component mount
+  useEffect(() => {
+    if (message === 'auth-required') {
+      toast.info('Veuillez vous connecter pour accéder à cette page')
+    } else if (message === 'session-expired') {
+      toast.warning('Votre session a expiré. Veuillez vous reconnecter.')
+    }
+  }, [message])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
@@ -73,10 +87,10 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
         return
       }
 
-      // Store auth data and redirect
+      // Store auth data and redirect to requested page or dashboard
       setAuth(result.data.user, result.data.accessToken)
       toast.success('Connexion réussie')
-      router.push('/dashboard')
+      router.push(redirectUrl)
     } catch (error) {
       setServerError('Erreur de connexion au serveur')
       setValue('password', '')

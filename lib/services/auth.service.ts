@@ -179,6 +179,38 @@ export class AuthService {
 
     return { accessToken }
   }
+
+  /**
+   * Logout user by invalidating their refresh token
+   * Idempotent operation - succeeds even if session doesn't exist
+   */
+  async logout(refreshToken: string): Promise<void> {
+    // Hash the refresh token to match against stored hashes
+    const refreshTokenHash = await hashPassword(refreshToken)
+
+    // Find and delete the session matching the refresh token hash
+    // Note: Since we hash with bcrypt (random salt), we need to compare manually
+    // This is the same pattern as in refreshAccessToken
+    const sessions = await Session.find()
+
+    // Find the session that matches the refresh token (bcrypt compare)
+    let matchedSession = null
+    for (const session of sessions) {
+      const isMatch = await comparePassword(refreshToken, session.refreshToken)
+      if (isMatch) {
+        matchedSession = session
+        break
+      }
+    }
+
+    if (matchedSession) {
+      await Session.findByIdAndDelete(matchedSession._id)
+      logger.info({ sessionId: matchedSession._id.toString() }, 'Session invalidated - user logged out')
+    } else {
+      // Idempotent: no error if session doesn't exist (already logged out or expired)
+      logger.info('Logout attempt with non-existent or expired session')
+    }
+  }
 }
 
 // Singleton instance export
