@@ -297,4 +297,84 @@ describe('AuthService', () => {
       expect(result.user).not.toHaveProperty('passwordHash')
     })
   })
+
+  describe('refreshAccessToken', () => {
+    const validRefreshToken = 'valid-refresh-token-uuid'
+    const hashedRefreshToken = '$2b$10$hashedrefreshtoken'
+    const mockAccessToken = 'new.jwt.token'
+
+    const mockUser = {
+      _id: { toString: () => 'user-id-123' },
+      email: 'test@example.com',
+      role: 'admin' as const,
+    }
+
+    const mockSession = {
+      userId: mockUser,
+      refreshToken: hashedRefreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+    }
+
+    beforeEach(() => {
+      mockAuthHelpers.generateAccessToken.mockReturnValue(mockAccessToken)
+    })
+
+    it('should return new access token for valid refresh token', async () => {
+      // Mock Session.find with populate
+      const mockFind = {
+        populate: jest.fn().mockResolvedValue([mockSession]),
+      }
+      ;(Session.find as jest.Mock).mockReturnValue(mockFind)
+      mockAuthHelpers.comparePassword.mockResolvedValue(true)
+
+      const result = await authService.refreshAccessToken(validRefreshToken)
+
+      expect(result).toEqual({ accessToken: mockAccessToken })
+      expect(mockAuthHelpers.generateAccessToken).toHaveBeenCalledWith({
+        userId: 'user-id-123',
+        email: 'test@example.com',
+        role: 'admin',
+      })
+    })
+
+    it('should throw AUTH_1002 if no session matches refresh token', async () => {
+      const mockFind = {
+        populate: jest.fn().mockResolvedValue([mockSession]),
+      }
+      ;(Session.find as jest.Mock).mockReturnValue(mockFind)
+      mockAuthHelpers.comparePassword.mockResolvedValue(false) // Token doesn't match
+
+      await expect(authService.refreshAccessToken('invalid-token')).rejects.toMatchObject({
+        message: 'Session expirée. Veuillez vous reconnecter.',
+        code: 'AUTH_1002',
+      })
+    })
+
+    it('should throw AUTH_1002 if no non-expired sessions exist', async () => {
+      const mockFind = {
+        populate: jest.fn().mockResolvedValue([]), // No sessions
+      }
+      ;(Session.find as jest.Mock).mockReturnValue(mockFind)
+
+      await expect(authService.refreshAccessToken(validRefreshToken)).rejects.toMatchObject({
+        message: 'Session expirée. Veuillez vous reconnecter.',
+        code: 'AUTH_1002',
+      })
+    })
+
+    it('should only check non-expired sessions', async () => {
+      const mockFind = {
+        populate: jest.fn().mockResolvedValue([mockSession]),
+      }
+      ;(Session.find as jest.Mock).mockReturnValue(mockFind)
+      mockAuthHelpers.comparePassword.mockResolvedValue(true)
+
+      await authService.refreshAccessToken(validRefreshToken)
+
+      // Verify find was called with expiration filter
+      expect(Session.find).toHaveBeenCalledWith({
+        expiresAt: { $gt: expect.any(Date) },
+      })
+    })
+  })
 })

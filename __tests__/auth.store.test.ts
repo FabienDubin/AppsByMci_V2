@@ -86,4 +86,92 @@ describe('authStore', () => {
       expect(token).toBe(mockToken)
     })
   })
+
+  describe('updateAccessToken', () => {
+    it('should update access token without changing user', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        role: 'admin' as const,
+      }
+      const initialToken = 'initial.jwt.token'
+      const newToken = 'new.jwt.token'
+
+      useAuthStore.getState().setAuth(mockUser, initialToken)
+      useAuthStore.getState().updateAccessToken(newToken)
+
+      const state = useAuthStore.getState()
+      expect(state.accessToken).toBe(newToken)
+      expect(state.user).toEqual(mockUser) // User unchanged
+      expect(state.isAuthenticated).toBe(true) // Still authenticated
+    })
+
+    it('should update token even when no user is set', () => {
+      const newToken = 'new.jwt.token'
+
+      useAuthStore.getState().updateAccessToken(newToken)
+
+      const state = useAuthStore.getState()
+      expect(state.accessToken).toBe(newToken)
+      expect(state.user).toBeNull()
+    })
+  })
+
+  describe('getTokenExpiration', () => {
+    it('should return null when no token is set', () => {
+      const expiration = useAuthStore.getState().getTokenExpiration()
+
+      expect(expiration).toBeNull()
+    })
+
+    it('should return null for invalid token format', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        role: 'admin' as const,
+      }
+
+      useAuthStore.getState().setAuth(mockUser, 'invalid-token')
+
+      const expiration = useAuthStore.getState().getTokenExpiration()
+      expect(expiration).toBeNull()
+    })
+
+    it('should decode and return exp claim from valid JWT', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        role: 'admin' as const,
+      }
+      // Create a mock JWT with exp claim (base64 encoded payload)
+      // Payload: {"userId":"user-123","email":"test@example.com","role":"admin","iat":1700000000,"exp":1700000900}
+      const expTimestamp = 1700000900
+      const payload = { userId: 'user-123', email: 'test@example.com', role: 'admin', iat: 1700000000, exp: expTimestamp }
+      const encodedPayload = btoa(JSON.stringify(payload))
+      const mockJwt = `header.${encodedPayload}.signature`
+
+      useAuthStore.getState().setAuth(mockUser, mockJwt)
+
+      const expiration = useAuthStore.getState().getTokenExpiration()
+      expect(expiration).toBe(expTimestamp)
+    })
+
+    it('should return null for JWT without exp claim', () => {
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        role: 'admin' as const,
+      }
+      // JWT payload without exp
+      const payload = { userId: 'user-123', email: 'test@example.com', role: 'admin' }
+      const encodedPayload = btoa(JSON.stringify(payload))
+      const mockJwt = `header.${encodedPayload}.signature`
+
+      useAuthStore.getState().setAuth(mockUser, mockJwt)
+
+      const expiration = useAuthStore.getState().getTokenExpiration()
+      expect(expiration).toBeNull()
+    })
+  })
 })

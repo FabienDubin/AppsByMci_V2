@@ -20,6 +20,8 @@ interface AuthActions {
   setAuth: (user: UserInfo, accessToken: string) => void
   clearAuth: () => void
   getAccessToken: () => string | null
+  updateAccessToken: (token: string) => void
+  getTokenExpiration: () => number | null
 }
 
 // Combined type
@@ -30,6 +32,21 @@ const initialState: AuthState = {
   user: null,
   accessToken: null,
   isAuthenticated: false,
+}
+
+/**
+ * Decode JWT payload without verification (client-side only)
+ * Returns null if token is invalid
+ */
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1]))
+    return payload
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -63,5 +80,23 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    */
   getAccessToken: () => {
     return get().accessToken
+  },
+
+  /**
+   * Update access token without touching user info (for refresh)
+   */
+  updateAccessToken: (token: string) => {
+    set({ accessToken: token })
+  },
+
+  /**
+   * Get token expiration timestamp (seconds since epoch)
+   * Returns null if no token or invalid token
+   */
+  getTokenExpiration: () => {
+    const token = get().accessToken
+    if (!token) return null
+    const payload = decodeJwtPayload(token)
+    return payload?.exp ?? null
   },
 }))

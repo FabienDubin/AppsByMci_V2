@@ -1,6 +1,11 @@
 import User, { IUser } from '@/models/User.model'
 import Session from '@/models/Session.model'
-import { hashPassword, comparePassword, generateAccessToken, generateRefreshToken } from '@/lib/auth'
+import {
+  hashPassword,
+  comparePassword,
+  generateAccessToken,
+  generateRefreshToken,
+} from '@/lib/auth'
 import { logger } from '@/lib/logger'
 
 // Authentication error codes
@@ -130,6 +135,49 @@ export class AuthService {
       role: user.role,
       createdAt: user.createdAt,
     }
+  }
+
+  /**
+   * Refresh access token using a valid refresh token
+   * @throws Error with code AUTH_1002 if refresh token is invalid or expired
+   */
+  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
+    // Find all non-expired sessions (we need to compare hashes)
+    const sessions = await Session.find({
+      expiresAt: { $gt: new Date() },
+    }).populate('userId')
+
+    // Find the session that matches the refresh token (bcrypt compare)
+    let matchedSession = null
+    for (const session of sessions) {
+      const isMatch = await comparePassword(refreshToken, session.refreshToken)
+      if (isMatch) {
+        matchedSession = session
+        break
+      }
+    }
+
+    // If no session found → AUTH_1002
+    if (!matchedSession) {
+      logger.warn('Refresh token invalid or session expired')
+      const error = new Error('Session expirée. Veuillez vous reconnecter.')
+      ;(error as any).code = 'AUTH_1002'
+      throw error
+    }
+
+    // Get user from populated session
+    const user = matchedSession.userId as unknown as IUser
+
+    // Generate new JWT
+    const accessToken = generateAccessToken({
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+    })
+
+    logger.info({ userId: user._id.toString() }, 'Access token refreshed successfully')
+
+    return { accessToken }
   }
 }
 
