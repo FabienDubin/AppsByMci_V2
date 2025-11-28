@@ -49,6 +49,171 @@ describe('PUT /api/animations/[id]', () => {
     jest.clearAllMocks()
   })
 
+  describe('Step 2: Update accessConfig and baseFields', () => {
+    it('should update accessConfig with type=code successfully', async () => {
+      const step2Data = {
+        accessConfig: {
+          type: 'code',
+          code: 'TECH2025',
+        },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+        },
+      }
+
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+      mockAnimationService.updateAnimation.mockResolvedValue({
+        _id: animationId,
+        ...step2Data,
+      } as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue({
+        id: animationId,
+        ...step2Data,
+      } as any)
+
+      const request = createMockRequest(step2Data, validToken)
+      const response = await PUT(request, { params: { id: animationId } })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data.accessConfig.type).toBe('code')
+      expect(data.data.accessConfig.code).toBe('TECH2025')
+      expect(mockAnimationService.updateAnimation).toHaveBeenCalledWith(
+        animationId,
+        mockUser.userId,
+        step2Data
+      )
+    })
+
+    it('should update accessConfig with type=email-domain successfully', async () => {
+      const step2Data = {
+        accessConfig: {
+          type: 'email-domain',
+          emailDomains: ['@company.com', '@partner.fr'],
+        },
+        baseFields: {
+          name: {
+            enabled: true,
+            required: true,
+            label: 'Nom complet',
+            placeholder: 'Entrez votre nom',
+          },
+          firstName: { enabled: false, required: true },
+          email: {
+            enabled: true,
+            required: true,
+            label: 'Email professionnel',
+          },
+        },
+      }
+
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+      mockAnimationService.updateAnimation.mockResolvedValue({
+        _id: animationId,
+        ...step2Data,
+      } as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue({
+        id: animationId,
+        ...step2Data,
+      } as any)
+
+      const request = createMockRequest(step2Data, validToken)
+      const response = await PUT(request, { params: { id: animationId } })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data.accessConfig.type).toBe('email-domain')
+      expect(data.data.accessConfig.emailDomains).toEqual(['@company.com', '@partner.fr'])
+      expect(data.data.baseFields.email.enabled).toBe(true)
+    })
+
+    it('should accept partial Step 2 data (updateAnimationSchema is permissive)', async () => {
+      // Note: The API uses updateAnimationSchema which allows partial updates
+      // Client-side validation (step2Schema) is stricter, but API accepts optional fields
+      const partialData = {
+        accessConfig: {
+          type: 'code',
+          // code is optional in updateAnimationSchema for partial updates
+        },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+        },
+      }
+
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+      mockAnimationService.updateAnimation.mockResolvedValue({
+        _id: animationId,
+        ...partialData,
+      } as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue({
+        id: animationId,
+        ...partialData,
+      } as any)
+
+      const request = createMockRequest(partialData, validToken)
+      const response = await PUT(request, { params: { id: animationId } })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+    })
+
+    it('should update baseFields with custom labels and placeholders', async () => {
+      const step2Data = {
+        accessConfig: {
+          type: 'none',
+        },
+        baseFields: {
+          name: {
+            enabled: true,
+            required: true,
+            label: 'Votre pseudo',
+            placeholder: 'Ex: SuperCoder42',
+          },
+          firstName: {
+            enabled: true,
+            required: false,
+            label: 'Prénom (optionnel)',
+            placeholder: 'Ex: Alex',
+          },
+          email: {
+            enabled: true,
+            required: true,
+            label: 'Email de contact',
+            placeholder: 'votreemail@exemple.com',
+          },
+        },
+      }
+
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+      mockAnimationService.updateAnimation.mockResolvedValue({
+        _id: animationId,
+        ...step2Data,
+      } as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue({
+        id: animationId,
+        ...step2Data,
+      } as any)
+
+      const request = createMockRequest(step2Data, validToken)
+      const response = await PUT(request, { params: { id: animationId } })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data.baseFields.name.label).toBe('Votre pseudo')
+      expect(data.data.baseFields.name.placeholder).toBe('Ex: SuperCoder42')
+      expect(data.data.baseFields.firstName.enabled).toBe(true)
+      expect(data.data.baseFields.firstName.required).toBe(false)
+    })
+  })
+
   describe('authentication', () => {
     it('should return 401 if no token provided', async () => {
       const request = createMockRequest({

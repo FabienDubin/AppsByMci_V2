@@ -12,11 +12,44 @@ export type AnimationStatus = 'draft' | 'published' | 'archived'
 export type AccessValidationType = 'open' | 'code' | 'email'
 
 /**
- * Access validation configuration
+ * Access validation configuration (Legacy - deprecated in favor of accessConfig)
  */
 export interface IAccessValidation {
   type: AccessValidationType
   value?: string // Code or email domain
+}
+
+/**
+ * Access config types for Step 2
+ */
+export type AccessConfigType = 'none' | 'code' | 'email-domain'
+
+/**
+ * Access config configuration (Step 2)
+ */
+export interface IAccessConfig {
+  type: AccessConfigType
+  code?: string // Required if type='code'
+  emailDomains?: string[] // Required if type='email-domain', parsed from CSV
+}
+
+/**
+ * Base field configuration (Step 2)
+ */
+export interface IBaseFieldConfig {
+  enabled: boolean
+  required: boolean
+  label?: string // Customizable label (default: "Nom", "Prénom", "Email")
+  placeholder?: string // Customizable placeholder
+}
+
+/**
+ * Base fields configuration (Step 2)
+ */
+export interface IBaseFields {
+  name: IBaseFieldConfig
+  firstName: IBaseFieldConfig
+  email: IBaseFieldConfig
 }
 
 /**
@@ -93,7 +126,9 @@ export interface IAnimation extends Document {
   slug: string
   description: string
   status: AnimationStatus
-  accessValidation: IAccessValidation
+  accessValidation: IAccessValidation // Legacy - deprecated
+  accessConfig?: IAccessConfig // Step 2 - New access configuration
+  baseFields?: IBaseFields // Step 2 - Base field configuration
   pipeline: IPipelineBlock[]
   questions: IQuestion[]
   aiModel?: IAIModel
@@ -160,6 +195,86 @@ const AnimationSchema = new Schema<IAnimation>(
       value: {
         type: String,
         default: undefined
+      }
+    },
+    accessConfig: {
+      type: {
+        type: String,
+        enum: {
+          values: ['none', 'code', 'email-domain'],
+          message: 'Access config type must be none, code, or email-domain'
+        },
+        default: undefined
+      },
+      code: {
+        type: String,
+        default: undefined
+      },
+      emailDomains: {
+        type: [String],
+        default: undefined
+      }
+    },
+    baseFields: {
+      name: {
+        enabled: {
+          type: Boolean,
+          default: true
+        },
+        required: {
+          type: Boolean,
+          default: true
+        },
+        label: {
+          type: String,
+          maxlength: 50,
+          default: 'Nom'
+        },
+        placeholder: {
+          type: String,
+          maxlength: 100,
+          default: 'Ex: Jean Dupont'
+        }
+      },
+      firstName: {
+        enabled: {
+          type: Boolean,
+          default: false
+        },
+        required: {
+          type: Boolean,
+          default: true
+        },
+        label: {
+          type: String,
+          maxlength: 50,
+          default: 'Prénom'
+        },
+        placeholder: {
+          type: String,
+          maxlength: 100,
+          default: 'Ex: Marie'
+        }
+      },
+      email: {
+        enabled: {
+          type: Boolean,
+          default: false
+        },
+        required: {
+          type: Boolean,
+          default: true
+        },
+        label: {
+          type: String,
+          maxlength: 50,
+          default: 'Email'
+        },
+        placeholder: {
+          type: String,
+          maxlength: 100,
+          default: 'exemple@email.com'
+        }
       }
     },
     pipeline: {

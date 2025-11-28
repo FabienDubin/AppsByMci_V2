@@ -169,6 +169,8 @@ export class AnimationService {
       updatedAt: obj.updatedAt,
       // Explicitly include wizard step fields (safe, no spread)
       accessValidation: obj.accessValidation,
+      accessConfig: obj.accessConfig, // Step 2
+      baseFields: obj.baseFields, // Step 2
       questions: obj.questions,
       pipeline: obj.pipeline,
       aiModel: obj.aiModel,

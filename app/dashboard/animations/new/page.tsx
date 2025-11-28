@@ -4,10 +4,11 @@ import { useAuthStore } from '@/lib/stores/auth.store'
 import { useWizardStore } from '@/lib/stores/wizard.store'
 import { WizardStepper } from '@/components/wizard/wizard-stepper'
 import { Step1GeneralInfo } from '@/components/wizard/steps/step-1-general-info'
+import { Step2AccessAndBaseFields } from '@/components/wizard/steps/step-2-access-and-base-fields'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import type { Step1Data } from '@/lib/schemas/animation.schema'
+import type { Step1Data, Step2Data } from '@/lib/schemas/animation.schema'
 
 // Step titles for wizard
 const STEP_TITLES = [
@@ -183,20 +184,14 @@ export default function NewAnimationPage() {
                 />
               )}
 
-              {/* Steps 2-8: Placeholders for future stories */}
+              {/* Step 2: Access Config + Base Fields */}
               {currentStep === 2 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-semibold">Configuration d'accès</h2>
-                  <p className="text-gray-500">Cette étape sera implémentée dans Story 3.2</p>
-                  <div className="flex justify-between pt-4">
-                    <Button onClick={handlePrevStep} variant="outline">
-                      Précédent
-                    </Button>
-                    <Button onClick={() => handleNextStep({})}>
-                      Suivant
-                    </Button>
-                  </div>
-                </div>
+                <Step2AccessAndBaseFields
+                  initialData={animationData}
+                  onNext={handleNextStep}
+                  onPrev={handlePrevStep}
+                  isLoading={isLoading}
+                />
               )}
 
               {currentStep >= 3 && currentStep <= 8 && (

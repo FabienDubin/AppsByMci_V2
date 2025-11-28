@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+// Base field configuration type
+export interface BaseFieldConfig {
+  enabled: boolean
+  required: boolean
+  label?: string
+  placeholder?: string
+}
+
 // Animation data type (partial during wizard)
 export interface AnimationData {
   _id?: string
@@ -11,6 +19,17 @@ export interface AnimationData {
   accessValidation?: {
     type: 'open' | 'code' | 'email'
     value?: string
+  }
+  // Step 2: Access Config + Base Fields
+  accessConfig?: {
+    type: 'none' | 'code' | 'email-domain'
+    code?: string
+    emailDomains?: string[]
+  }
+  baseFields?: {
+    name: BaseFieldConfig
+    firstName: BaseFieldConfig
+    email: BaseFieldConfig
   }
   questions?: any[]
   pipeline?: any[]

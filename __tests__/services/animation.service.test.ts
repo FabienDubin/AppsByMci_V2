@@ -231,5 +231,100 @@ describe('AnimationService', () => {
       expect(result).toHaveProperty('name', 'Test Animation')
       expect(result).toHaveProperty('slug', 'test-animation')
     })
+
+    it('should include accessConfig and baseFields in response (Step 2)', () => {
+      const mockAnimation = {
+        toJSON: () => ({
+          _id: 'animation-123',
+          id: 'animation-123',
+          userId: 'user-123',
+          name: 'Test Animation',
+          slug: 'test-animation',
+          description: 'Test',
+          status: 'draft',
+          accessConfig: {
+            type: 'code',
+            code: 'TEST2025',
+          },
+          baseFields: {
+            name: {
+              enabled: true,
+              required: true,
+              label: 'Nom',
+              placeholder: 'Ex: Jean Dupont',
+            },
+            firstName: {
+              enabled: false,
+              required: true,
+            },
+            email: {
+              enabled: false,
+              required: true,
+            },
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      }
+
+      const result = service.toAnimationResponse(mockAnimation as any)
+
+      expect(result).toHaveProperty('accessConfig')
+      expect(result.accessConfig).toEqual({
+        type: 'code',
+        code: 'TEST2025',
+      })
+      expect(result).toHaveProperty('baseFields')
+      expect(result.baseFields.name.enabled).toBe(true)
+      expect(result.baseFields.name.label).toBe('Nom')
+    })
+  })
+
+  describe('updateAnimation with Step 2 data', () => {
+    const animationId = '507f1f77bcf86cd799439015'
+    const userId = '507f1f77bcf86cd799439016'
+
+    it('should update accessConfig successfully', async () => {
+      const step2Data = {
+        accessConfig: {
+          type: 'email-domain',
+          emailDomains: ['@company.com', '@partner.fr'],
+        },
+        baseFields: {
+          name: {
+            enabled: true,
+            required: true,
+            label: 'Nom complet',
+            placeholder: 'Entrez votre nom',
+          },
+          firstName: {
+            enabled: false,
+            required: true,
+          },
+          email: {
+            enabled: true,
+            required: true,
+            label: 'Email professionnel',
+            placeholder: 'nom@company.com',
+          },
+        },
+      }
+
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(animationId),
+        userId: { toString: () => userId },
+        name: 'Test Animation',
+        slug: 'test-animation',
+        save: jest.fn().mockResolvedValue(true),
+      }
+
+      mockAnimation.findById.mockResolvedValue(mockAnimationDoc as any)
+
+      const result = await service.updateAnimation(animationId, userId, step2Data as any)
+
+      expect(mockAnimationDoc.save).toHaveBeenCalled()
+      expect(mockAnimation.findById).toHaveBeenCalledWith(animationId)
+      expect(result).toBeDefined()
+    })
   })
 })
