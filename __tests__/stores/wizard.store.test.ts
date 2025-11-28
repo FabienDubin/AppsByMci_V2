@@ -1,5 +1,10 @@
 import { describe, it, expect } from '@jest/globals'
-import { getAvailableVariables, AnimationData } from '@/lib/stores/wizard.store'
+import {
+  getAvailableVariables,
+  getAvailableEmailVariables,
+  DEFAULT_EMAIL_CONFIG,
+  AnimationData,
+} from '@/lib/stores/wizard.store'
 
 describe('Wizard Store - getAvailableVariables', () => {
   describe('Base fields variables', () => {
@@ -136,11 +141,10 @@ describe('Wizard Store - getAvailableVariables', () => {
         },
       }
       const result = getAvailableVariables(data)
-      // Note: Current implementation uses array index + 1, so selfie at index 0 is skipped,
-      // but question1 will be index 1 (second element), question2 will be index 2
+      // Selfie is skipped, questions are numbered sequentially: question1, question2
+      expect(result).toContain('{question1}')
       expect(result).toContain('{question2}')
-      expect(result).toContain('{question3}')
-      expect(result).not.toContain('{question1}') // selfie was at index 0
+      expect(result.length).toBe(2)
     })
 
     it('should handle multiple question types', () => {
@@ -280,12 +284,11 @@ describe('Wizard Store - getAvailableVariables', () => {
       expect(result).toContain('{nom}')
       expect(result).toContain('{prenom}')
       expect(result).toContain('{email}')
-      // Questions (selfie excluded, so question2, question3, question4)
+      // Questions (selfie excluded, numbered sequentially: question1, question2, question3)
+      expect(result).toContain('{question1}')
       expect(result).toContain('{question2}')
       expect(result).toContain('{question3}')
-      expect(result).toContain('{question4}')
-      // Selfie should not generate a variable
-      expect(result).not.toContain('{question1}') // selfie was at index 0
+      // Total: 3 base fields + 3 questions = 6
       expect(result.length).toBe(6)
     })
   })
@@ -327,5 +330,85 @@ describe('Wizard Store - getAvailableVariables', () => {
       const result = getAvailableVariables(data)
       expect(result).toEqual(['{nom}'])
     })
+  })
+})
+
+describe('Wizard Store - getAvailableEmailVariables', () => {
+  it('should include all base variables plus {imageUrl}', () => {
+    const data: AnimationData = {
+      baseFields: {
+        name: { enabled: true, required: true },
+        firstName: { enabled: true, required: false },
+        email: { enabled: true, required: true },
+      },
+    }
+    const result = getAvailableEmailVariables(data)
+    expect(result).toContain('{nom}')
+    expect(result).toContain('{prenom}')
+    expect(result).toContain('{email}')
+    expect(result).toContain('{imageUrl}')
+  })
+
+  it('should always include {imageUrl} even with no base fields', () => {
+    const data: AnimationData = {}
+    const result = getAvailableEmailVariables(data)
+    expect(result).toContain('{imageUrl}')
+  })
+
+  it('should include questions and {imageUrl}', () => {
+    const data: AnimationData = {
+      baseFields: {
+        name: { enabled: true, required: true },
+        firstName: { enabled: false, required: false },
+        email: { enabled: false, required: false },
+      },
+      inputCollection: {
+        elements: [
+          {
+            id: crypto.randomUUID(),
+            type: 'choice',
+            order: 0,
+            question: 'Color?',
+            options: ['Red', 'Blue'],
+          },
+        ],
+      },
+    }
+    const result = getAvailableEmailVariables(data)
+    expect(result).toContain('{nom}')
+    expect(result).toContain('{question1}')
+    expect(result).toContain('{imageUrl}')
+    expect(result.length).toBe(3)
+  })
+
+  it('should have {imageUrl} as the last element', () => {
+    const data: AnimationData = {
+      baseFields: {
+        name: { enabled: true, required: true },
+        firstName: { enabled: false, required: false },
+        email: { enabled: false, required: false },
+      },
+    }
+    const result = getAvailableEmailVariables(data)
+    expect(result[result.length - 1]).toBe('{imageUrl}')
+  })
+})
+
+describe('Wizard Store - DEFAULT_EMAIL_CONFIG', () => {
+  it('should have enabled set to false by default', () => {
+    expect(DEFAULT_EMAIL_CONFIG.enabled).toBe(false)
+  })
+
+  it('should have default senderName as AppsByMCI', () => {
+    expect(DEFAULT_EMAIL_CONFIG.senderName).toBe('AppsByMCI')
+  })
+
+  it('should have default senderEmail as noreply@appsbymci.com', () => {
+    expect(DEFAULT_EMAIL_CONFIG.senderEmail).toBe('noreply@appsbymci.com')
+  })
+
+  it('should not have subject or bodyTemplate defined', () => {
+    expect(DEFAULT_EMAIL_CONFIG.subject).toBeUndefined()
+    expect(DEFAULT_EMAIL_CONFIG.bodyTemplate).toBeUndefined()
   })
 })

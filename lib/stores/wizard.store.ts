@@ -105,9 +105,10 @@ export interface AnimationData {
   }
   emailConfig?: {
     enabled: boolean
-    subject: string
-    template: string
-    sender: string
+    subject?: string
+    bodyTemplate?: string
+    senderName: string
+    senderEmail: string
   }
   displayConfig?: {
     enabled: boolean
@@ -248,6 +249,26 @@ export const useWizardStore = create<WizardStore>()(
 )
 
 /**
+ * Email config interface (Step 5)
+ */
+export interface EmailConfigData {
+  enabled: boolean
+  subject?: string
+  bodyTemplate?: string
+  senderName: string
+  senderEmail: string
+}
+
+/**
+ * Default email config values
+ */
+export const DEFAULT_EMAIL_CONFIG: EmailConfigData = {
+  enabled: false,
+  senderName: 'AppsByMCI',
+  senderEmail: 'noreply@appsbymci.com',
+}
+
+/**
  * Helper: Get available variables for prompt template
  * Returns array of variable names like ['{nom}', '{prenom}', '{email}', '{question1}', '{question2}']
  */
@@ -260,11 +281,26 @@ export const getAvailableVariables = (data: AnimationData): string[] => {
   if (data.baseFields?.email.enabled) vars.push('{email}')
 
   // Input collection from Step 3 (exclude selfie, use question1, question2 etc.)
-  data.inputCollection?.elements.forEach((el, idx) => {
+  let questionIndex = 1
+  data.inputCollection?.elements.forEach((el) => {
     if (el.type !== 'selfie') {
-      vars.push(`{question${idx + 1}}`)
+      vars.push(`{question${questionIndex}}`)
+      questionIndex++
     }
   })
+
+  return vars
+}
+
+/**
+ * Helper: Get available email variables
+ * Returns array of variable names including system variables like {imageUrl}
+ */
+export const getAvailableEmailVariables = (data: AnimationData): string[] => {
+  const vars = getAvailableVariables(data)
+
+  // Add system variables for email
+  vars.push('{imageUrl}')
 
   return vars
 }

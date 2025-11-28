@@ -7,12 +7,14 @@ import { Step1GeneralInfo } from '@/components/wizard/steps/step-1-general-info'
 import { Step2AccessAndBaseFields } from '@/components/wizard/steps/step-2-access-and-base-fields'
 import { Step3AdvancedInputs } from '@/components/wizard/steps/step-3-advanced-inputs'
 import { Step4Pipeline } from '@/components/wizard/steps/step-4-pipeline'
+import { Step5EmailConfig } from '@/components/wizard/steps/step-5-email-config'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { RotateCcw } from 'lucide-react'
 import type { Step1Data } from '@/lib/schemas/animation.schema'
-import { step3Schema, step4Schema } from '@/lib/schemas/animation.schema'
+import { step3Schema, step4Schema, step5Schema } from '@/lib/schemas/animation.schema'
+import { DEFAULT_EMAIL_CONFIG } from '@/lib/stores/wizard.store'
 import { validatePipelineLogic } from '@/lib/utils/pipeline-validator'
 
 // Step titles for wizard
@@ -366,7 +368,47 @@ export default function NewAnimationPage() {
                 </div>
               )}
 
-              {currentStep >= 5 && currentStep <= 8 && (
+              {/* Step 5: Configuration Email */}
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <Step5EmailConfig />
+
+                  <div className="flex justify-between pt-4 border-t">
+                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
+                      Précédent
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Get email config from store, merge with defaults to ensure all fields present
+                        const emailConfig = {
+                          ...DEFAULT_EMAIL_CONFIG,
+                          ...animationData.emailConfig,
+                        }
+
+                        try {
+                          // Validate with Zod schema
+                          step5Schema.parse({ emailConfig })
+
+                          // Save and proceed
+                          await handleNextStep({ emailConfig })
+                        } catch (error: any) {
+                          if (error.errors) {
+                            toast.error(error.errors[0]?.message || 'Erreur de validation')
+                          } else {
+                            toast.error('Erreur de validation de la configuration email')
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Steps 6-8: Placeholder */}
+              {currentStep >= 6 && currentStep <= 8 && (
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold">{STEP_TITLES[currentStep - 1]}</h2>
                   <p className="text-gray-500">Cette étape sera implémentée dans les prochaines stories</p>

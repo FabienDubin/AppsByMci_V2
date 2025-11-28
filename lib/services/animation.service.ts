@@ -141,8 +141,11 @@ export class AnimationService {
       await this.validateSlugUnique(data.slug, animationId)
     }
 
-    // Update animation fields
-    Object.assign(animation, data)
+    // Update animation fields using set() for proper Mongoose change tracking
+    // Object.assign doesn't trigger Mongoose change detection on nested objects
+    for (const [key, value] of Object.entries(data)) {
+      animation.set(key, value)
+    }
     await animation.save()
 
     logger.info(

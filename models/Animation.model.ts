@@ -170,9 +170,10 @@ export interface IAIModel {
  */
 export interface IEmailConfig {
   enabled: boolean
-  subject: string
-  template: string
-  sender: string
+  subject?: string // max 200 chars
+  bodyTemplate?: string // max 10000 chars, HTML
+  senderName: string // default 'AppsByMCI'
+  senderEmail: string // default 'noreply@appsbymci.com'
 }
 
 /**
@@ -590,19 +591,33 @@ const AnimationSchema = new Schema<IAnimation>(
     emailConfig: {
       enabled: {
         type: Boolean,
-        default: undefined
+        default: false
       },
       subject: {
         type: String,
+        maxlength: [200, 'Le sujet ne peut pas dépasser 200 caractères'],
         default: undefined
       },
-      template: {
+      bodyTemplate: {
         type: String,
+        maxlength: [10000, 'Le corps de l\'email ne peut pas dépasser 10000 caractères'],
         default: undefined
       },
-      sender: {
+      senderName: {
         type: String,
-        default: undefined
+        maxlength: [100, 'Le nom de l\'expéditeur ne peut pas dépasser 100 caractères'],
+        default: 'AppsByMCI'
+      },
+      senderEmail: {
+        type: String,
+        default: 'noreply@appsbymci.com',
+        validate: {
+          validator: function (email: string) {
+            if (!email) return true // Optional field
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+          },
+          message: 'Format d\'email invalide'
+        }
       }
     },
     displayConfig: {
@@ -726,6 +741,30 @@ AnimationSchema.pre('save', function () {
       if (!element.maxLength) {
         throw new Error(`maxLength requis pour élément free-text (id: ${element.id})`)
       }
+    }
+  }
+})
+
+/**
+ * Pre-save validation hook for emailConfig
+ * Validates business rules:
+ * - If enabled=true, subject and bodyTemplate are required
+ */
+AnimationSchema.pre('save', function () {
+  // Only validate if emailConfig exists and has been modified
+  if (!this.emailConfig || !this.isModified('emailConfig')) {
+    return
+  }
+
+  const emailConfig = this.emailConfig
+
+  // Conditional validation: if enabled=true, subject and bodyTemplate required
+  if (emailConfig.enabled) {
+    if (!emailConfig.subject || emailConfig.subject.trim() === '') {
+      throw new Error('Le sujet de l\'email est requis quand l\'envoi est activé')
+    }
+    if (!emailConfig.bodyTemplate || emailConfig.bodyTemplate.trim() === '') {
+      throw new Error('Le corps de l\'email est requis quand l\'envoi est activé')
     }
   }
 })
