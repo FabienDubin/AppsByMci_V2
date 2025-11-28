@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { ImageUsageMode, ImageSourceType } from '@/lib/types'
 
 // Base field configuration type
 export interface BaseFieldConfig {
@@ -39,6 +40,37 @@ export interface InputCollection {
   elements: InputElement[]
 }
 
+// Step 4: Pipeline types
+export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing'
+export type BlockName = 'crop-resize' | 'ai-generation' | 'filters'
+
+export interface PipelineBlockConfig {
+  // Crop & Resize
+  format?: 'square' | '16:9' | '4:3' | 'original'
+  dimensions?: number // 256-2048
+
+  // IA Generation
+  modelId?: string // 'dall-e-3', 'gpt-image-1', 'imagen-4.0-generate-001'
+  promptTemplate?: string // max 2000 chars
+
+  // Image configuration (for AI generation blocks)
+  imageUsageMode?: ImageUsageMode    // 'none' | 'reference' | 'edit'
+  imageSource?: ImageSourceType       // 'selfie' | 'url' | 'ai-block-output'
+  imageUrl?: string                   // URL if imageSource === 'url'
+  sourceBlockId?: string              // Block ID if imageSource === 'ai-block-output'
+
+  // Filters (future)
+  filters?: string[]
+}
+
+export interface PipelineBlock {
+  id: string // UUID
+  type: PipelineBlockType
+  blockName: BlockName
+  order: number // 0-indexed
+  config: PipelineBlockConfig
+}
+
 // Animation data type (partial during wizard)
 export interface AnimationData {
   _id?: string
@@ -64,7 +96,8 @@ export interface AnimationData {
   // Step 3: Input Collection (advanced inputs)
   inputCollection?: InputCollection
   questions?: any[]
-  pipeline?: any[]
+  // Step 4: Pipeline
+  pipeline?: PipelineBlock[]
   aiModel?: {
     modelId: string
     prompt: string
@@ -213,3 +246,25 @@ export const useWizardStore = create<WizardStore>()(
     }
   )
 )
+
+/**
+ * Helper: Get available variables for prompt template
+ * Returns array of variable names like ['{nom}', '{prenom}', '{email}', '{question1}', '{question2}']
+ */
+export const getAvailableVariables = (data: AnimationData): string[] => {
+  const vars: string[] = []
+
+  // Base fields from Step 2
+  if (data.baseFields?.name.enabled) vars.push('{nom}')
+  if (data.baseFields?.firstName.enabled) vars.push('{prenom}')
+  if (data.baseFields?.email.enabled) vars.push('{email}')
+
+  // Input collection from Step 3 (exclude selfie, use question1, question2 etc.)
+  data.inputCollection?.elements.forEach((el, idx) => {
+    if (el.type !== 'selfie') {
+      vars.push(`{question${idx + 1}}`)
+    }
+  })
+
+  return vars
+}

@@ -69,8 +69,20 @@ export interface Session {
 // AI Model types
 export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS]
 
+// Image usage mode - how the image is used by the AI model
+export type ImageUsageMode =
+  | 'none'       // No image used - text-to-image generation only
+  | 'reference'  // Image as style reference (OpenAI /generations, Imagen multimodal)
+  | 'edit'       // Direct image editing/transformation (OpenAI /edits only)
+
+// Image source type - where the image comes from
+export type ImageSourceType =
+  | 'selfie'           // Selfie uploaded by participant
+  | 'url'              // External URL provided by user during config
+  | 'ai-block-output'  // Output from a previous AI block in the pipeline
+
 export interface AICapabilities {
-  requiresImage: boolean
+  supportedModes: ImageUsageMode[]  // Modes supported by this model
   supportsEdit: boolean
   maxSize: number // Max pixels (1024 for most models)
 }
@@ -78,6 +90,7 @@ export interface AICapabilities {
 export interface AIModel {
   id: string
   name: string
+  description: string // User-friendly description of the model and its use case
   provider: AIProvider
   capabilities: AICapabilities
 }

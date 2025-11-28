@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Step1GeneralInfoProps {
   initialData?: Partial<Step1Data>
   onNext: (data: Step1Data) => void | Promise<void>
   isLoading?: boolean
+  error?: string | null
 }
 
 /**
@@ -31,7 +34,7 @@ function generateSlug(name: string): string {
  * Step 1: General Information
  * Name, Description, Slug with auto-generation
  */
-export function Step1GeneralInfo({ initialData, onNext, isLoading = false }: Step1GeneralInfoProps) {
+export function Step1GeneralInfo({ initialData, onNext, isLoading = false, error = null }: Step1GeneralInfoProps) {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
 
   const {
@@ -66,6 +69,14 @@ export function Step1GeneralInfo({ initialData, onNext, isLoading = false }: Ste
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Error alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Name field */}
       <div className="space-y-2">
         <Label htmlFor="name">

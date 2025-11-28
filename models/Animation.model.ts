@@ -91,11 +91,52 @@ export interface IInputCollection {
 }
 
 /**
- * Pipeline block configuration
+ * Pipeline block types (Step 4)
+ */
+export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing'
+export type BlockName = 'crop-resize' | 'ai-generation' | 'filters'
+
+/**
+ * Image usage mode for AI generation
+ */
+export type ImageUsageMode = 'none' | 'reference' | 'edit'
+
+/**
+ * Image source type for AI generation
+ */
+export type ImageSourceType = 'selfie' | 'url' | 'ai-block-output'
+
+/**
+ * Pipeline block configuration (Step 4)
+ */
+export interface IPipelineBlockConfig {
+  // Crop & Resize
+  format?: 'square' | '16:9' | '4:3' | 'original'
+  dimensions?: number // 256-2048
+
+  // IA Generation
+  modelId?: string // 'dall-e-3', 'gpt-image-1', 'imagen-4.0-generate-001'
+  promptTemplate?: string // max 2000 chars
+
+  // Image configuration (for AI generation blocks)
+  imageUsageMode?: ImageUsageMode
+  imageSource?: ImageSourceType
+  imageUrl?: string
+  sourceBlockId?: string
+
+  // Filters (future)
+  filters?: string[]
+}
+
+/**
+ * Pipeline block (Step 4)
  */
 export interface IPipelineBlock {
-  blockType: string
-  config: Record<string, any>
+  id: string // UUID
+  type: PipelineBlockType
+  blockName: BlockName
+  order: number // 0-indexed
+  config: IPipelineBlockConfig
 }
 
 /**
@@ -400,20 +441,105 @@ const AnimationSchema = new Schema<IAnimation>(
       required: false,
       default: undefined
     },
+    // Step 4: Pipeline Configuration
     pipeline: {
       type: [
         {
-          blockType: {
+          id: {
             type: String,
             required: true
           },
+          type: {
+            type: String,
+            enum: {
+              values: ['preprocessing', 'ai-generation', 'postprocessing'],
+              message: 'Pipeline block type must be preprocessing, ai-generation, or postprocessing'
+            },
+            required: true
+          },
+          blockName: {
+            type: String,
+            enum: {
+              values: ['crop-resize', 'ai-generation', 'filters'],
+              message: 'Block name must be crop-resize, ai-generation, or filters'
+            },
+            required: true
+          },
+          order: {
+            type: Number,
+            required: true,
+            min: 0
+          },
           config: {
-            type: Schema.Types.Mixed,
-            default: {}
+            // Crop & Resize
+            format: {
+              type: String,
+              enum: ['square', '16:9', '4:3', 'original'],
+              default: undefined
+            },
+            dimensions: {
+              type: Number,
+              min: 256,
+              max: 2048,
+              default: undefined
+            },
+            // IA Generation
+            modelId: {
+              type: String,
+              default: undefined
+            },
+            promptTemplate: {
+              type: String,
+              maxlength: [2000, 'Prompt template cannot exceed 2000 characters'],
+              default: undefined
+            },
+            // Image configuration (for AI generation blocks)
+            imageUsageMode: {
+              type: String,
+              enum: ['none', 'reference', 'edit'],
+              default: undefined
+            },
+            imageSource: {
+              type: String,
+              enum: ['selfie', 'url', 'ai-block-output'],
+              default: undefined
+            },
+            imageUrl: {
+              type: String,
+              default: undefined
+            },
+            sourceBlockId: {
+              type: String,
+              default: undefined
+            },
+            // Filters (future)
+            filters: {
+              type: [String],
+              default: undefined
+            }
           }
         }
       ],
-      default: []
+      default: [],
+      validate: {
+        validator: function (pipeline: IPipelineBlock[]) {
+          if (!pipeline || pipeline.length === 0) return true // Empty pipeline is valid
+
+          // Validation 1: Max 4 AI generation blocks
+          const aiBlocksCount = pipeline.filter((b) => b.type === 'ai-generation').length
+          if (aiBlocksCount > 4) {
+            return false
+          }
+
+          // Validation 2: Max 20 blocks total
+          if (pipeline.length > 20) {
+            return false
+          }
+
+          return true
+        },
+        message: 'Pipeline must have max 4 AI blocks and max 20 blocks total'
+      }
     },
     questions: {
       type: [

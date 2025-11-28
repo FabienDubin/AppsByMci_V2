@@ -30,7 +30,7 @@ export const AIProviderValues = Object.values(AI_PROVIDERS) as [string, ...strin
 
 // AI model capabilities schema
 export const AICapabilitiesSchema = z.object({
-  requiresImage: z.boolean(),
+  supportedModes: z.array(z.enum(['none', 'reference', 'edit'])),
   supportsEdit: z.boolean(),
   maxSize: z.number(),
 })

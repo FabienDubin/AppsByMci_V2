@@ -6,13 +6,14 @@ import { WizardStepper } from '@/components/wizard/wizard-stepper'
 import { Step1GeneralInfo } from '@/components/wizard/steps/step-1-general-info'
 import { Step2AccessAndBaseFields } from '@/components/wizard/steps/step-2-access-and-base-fields'
 import { Step3AdvancedInputs } from '@/components/wizard/steps/step-3-advanced-inputs'
+import { Step4Pipeline } from '@/components/wizard/steps/step-4-pipeline'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { AlertCircle } from 'lucide-react'
-import type { Step1Data, Step2Data, Step3Data } from '@/lib/schemas/animation.schema'
-import { step3Schema } from '@/lib/schemas/animation.schema'
+import { RotateCcw } from 'lucide-react'
+import type { Step1Data } from '@/lib/schemas/animation.schema'
+import { step3Schema, step4Schema } from '@/lib/schemas/animation.schema'
+import { validatePipelineLogic } from '@/lib/utils/pipeline-validator'
 
 // Step titles for wizard
 const STEP_TITLES = [
@@ -35,12 +36,14 @@ export default function NewAnimationPage() {
     animationId,
     animationData,
     isLoading,
+    error,
     setAnimationId,
     updateData,
     nextStep,
     prevStep,
     setLoading,
     setError,
+    resetWizard,
   } = useWizardStore()
 
   // Redirect if not authenticated
@@ -55,7 +58,7 @@ export default function NewAnimationPage() {
    */
   const handleStep1Next = async (data: Step1Data) => {
     setLoading(true)
-    setError(null)
+    setError(null) // Clear any previous errors
 
     try {
       const token = getAccessToken()
@@ -63,7 +66,7 @@ export default function NewAnimationPage() {
         throw new Error('Non authentifié')
       }
 
-      // If animation already exists (user navigated back), update it instead of creating
+      // If animation already exists (user navigated back), try to update it
       if (animationId) {
         const response = await fetch(`/api/animations/${animationId}`, {
           method: 'PUT',
@@ -76,14 +79,27 @@ export default function NewAnimationPage() {
 
         const result = await response.json()
 
-        if (!response.ok || !result.success) {
-          throw new Error(result.error?.message || 'Erreur lors de la mise à jour')
+        // If animation not found (deleted or session expired), create a new one
+        if (response.status === 404 || result.error?.code === 'NOT_FOUND_3001') {
+          console.warn('Animation not found, creating new one')
+          // Clear old animationId and fall through to create new
+          setAnimationId('')
+        } else if (!response.ok || !result.success) {
+          // Handle error without throwing
+          setError(result.error?.message || 'Erreur lors de la mise à jour')
+          setLoading(false)
+          return
+        } else {
+          // Update successful
+          updateData(result.data)
+          nextStep()
+          setLoading(false)
+          return
         }
+      }
 
-        updateData(result.data)
-        toast.success('Animation mise à jour avec succès')
-      } else {
-        // Create new animation
+      // Create new animation (either animationId was empty or update failed with 404)
+      {
         const response = await fetch('/api/animations', {
           method: 'POST',
           headers: {
@@ -96,22 +112,23 @@ export default function NewAnimationPage() {
         const result = await response.json()
 
         if (!response.ok || !result.success) {
-          throw new Error(result.error?.message || 'Erreur lors de la création')
+          // Handle error without throwing
+          setError(result.error?.message || 'Erreur lors de la création')
+          setLoading(false)
+          return
         }
 
         // Store animation ID and data
         setAnimationId(result.data.id)
         updateData(result.data)
 
-        toast.success('Animation créée avec succès')
+        // Move to next step
+        nextStep()
       }
-
-      // Move to next step
-      nextStep()
     } catch (error: any) {
-      console.error('Error with animation:', error)
-      setError(error.message)
-      toast.error(error.message || 'Une erreur est survenue')
+      // Only catch unexpected errors (network issues, etc.)
+      console.error('Unexpected error with animation:', error)
+      setError('Une erreur inattendue est survenue')
     } finally {
       setLoading(false)
     }
@@ -175,6 +192,16 @@ export default function NewAnimationPage() {
     prevStep()
   }
 
+  /**
+   * Handle reset wizard
+   */
+  const handleReset = () => {
+    if (confirm('Es-tu sûr de vouloir réinitialiser le wizard ? Toutes les données seront perdues.')) {
+      resetWizard()
+      toast.success('Wizard réinitialisé')
+    }
+  }
+
   // Determine completed steps (all steps before current)
   const completedSteps = Array.from({ length: currentStep - 1 }, (_, i) => i + 1)
 
@@ -182,8 +209,18 @@ export default function NewAnimationPage() {
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <h1 className="text-3xl font-bold">Créer une animation</h1>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={isLoading}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -206,6 +243,7 @@ export default function NewAnimationPage() {
                   initialData={animationData}
                   onNext={handleStep1Next}
                   isLoading={isLoading}
+                  error={error}
                 />
               )}
 
@@ -267,7 +305,68 @@ export default function NewAnimationPage() {
                 </div>
               )}
 
-              {currentStep >= 4 && currentStep <= 8 && (
+              {/* Step 4: Pipeline de Traitement */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <Step4Pipeline />
+
+                  <div className="flex justify-between pt-4 border-t">
+                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
+                      Précédent
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Validate Step 4 data with intelligent pipeline validation
+                        const pipeline = animationData.pipeline || []
+
+                        try {
+                          // Zod validation (max blocks, config fields)
+                          step4Schema.parse({ pipeline })
+
+                          // Intelligent validation (AC-3.6.9)
+                          const validationResult = validatePipelineLogic(
+                            pipeline,
+                            animationData.inputCollection
+                          )
+
+                          if (validationResult.type === 'error') {
+                            toast.error(validationResult.message)
+                            return
+                          }
+
+                          if (validationResult.type === 'warning' || validationResult.type === 'info') {
+                            // Show warning/info and wait for user confirmation
+                            toast.warning(validationResult.message, {
+                              duration: 10000,
+                              action: {
+                                label: 'Continuer quand même',
+                                onClick: async () => {
+                                  await handleNextStep({ pipeline })
+                                },
+                              },
+                            })
+                            return
+                          }
+
+                          // Valid pipeline - proceed
+                          await handleNextStep({ pipeline })
+                        } catch (error: any) {
+                          if (error.errors) {
+                            toast.error(error.errors[0]?.message || 'Erreur de validation')
+                          } else {
+                            toast.error('Erreur de validation du pipeline')
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {currentStep >= 5 && currentStep <= 8 && (
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold">{STEP_TITLES[currentStep - 1]}</h2>
                   <p className="text-gray-500">Cette étape sera implémentée dans les prochaines stories</p>
