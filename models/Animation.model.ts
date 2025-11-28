@@ -53,6 +53,44 @@ export interface IBaseFields {
 }
 
 /**
+ * Input Element types (Step 3)
+ */
+export type InputElementType = 'selfie' | 'choice' | 'slider' | 'free-text'
+
+/**
+ * Input Element configuration (Step 3)
+ */
+export interface IInputElement {
+  id: string // UUID
+  type: InputElementType
+  order: number // 0-indexed
+
+  // Common fields (except selfie)
+  question?: string // max 500 chars
+  required?: boolean // default true
+
+  // Choice fields
+  options?: string[] // min 2, max 6, each max 100 chars
+
+  // Slider fields
+  min?: number
+  max?: number
+  minLabel?: string // max 50 chars
+  maxLabel?: string // max 50 chars
+
+  // Free-text fields
+  maxLength?: number // 50-2000
+  placeholder?: string // max 100 chars
+}
+
+/**
+ * Input Collection configuration (Step 3)
+ */
+export interface IInputCollection {
+  elements: IInputElement[]
+}
+
+/**
  * Pipeline block configuration
  */
 export interface IPipelineBlock {
@@ -129,6 +167,7 @@ export interface IAnimation extends Document {
   accessValidation: IAccessValidation // Legacy - deprecated
   accessConfig?: IAccessConfig // Step 2 - New access configuration
   baseFields?: IBaseFields // Step 2 - Base field configuration
+  inputCollection?: IInputCollection // Step 3 - Advanced input collection
   pipeline: IPipelineBlock[]
   questions: IQuestion[]
   aiModel?: IAIModel
@@ -277,6 +316,90 @@ const AnimationSchema = new Schema<IAnimation>(
         }
       }
     },
+    // Step 3: Input Collection (advanced inputs - selfie + questions)
+    inputCollection: {
+      type: {
+        elements: {
+          type: [
+            {
+              id: {
+                type: String,
+                required: true // UUID
+              },
+              type: {
+                type: String,
+                enum: {
+                  values: ['selfie', 'choice', 'slider', 'free-text'],
+                  message: 'Input element type must be selfie, choice, slider, or free-text'
+                },
+                required: true
+              },
+              order: {
+                type: Number,
+                required: true,
+                min: [0, 'Order must be >= 0']
+              },
+              // Common fields (except selfie)
+              question: {
+                type: String,
+                maxlength: [500, 'Question cannot exceed 500 characters'],
+                default: undefined
+              },
+              required: {
+                type: Boolean,
+                default: true
+              },
+              // Choice fields
+              options: {
+                type: [String],
+                validate: {
+                  validator: function (v: string[]) {
+                    if (!v) return true // Optional field
+                    return v.length >= 2 && v.length <= 6 && v.every((opt) => opt.length <= 100)
+                  },
+                  message: 'Options must have 2-6 items, each max 100 characters'
+                },
+                default: undefined
+              },
+              // Slider fields
+              min: {
+                type: Number,
+                default: undefined
+              },
+              max: {
+                type: Number,
+                default: undefined
+              },
+              minLabel: {
+                type: String,
+                maxlength: [50, 'Min label cannot exceed 50 characters'],
+                default: undefined
+              },
+              maxLabel: {
+                type: String,
+                maxlength: [50, 'Max label cannot exceed 50 characters'],
+                default: undefined
+              },
+              // Free-text fields
+              maxLength: {
+                type: Number,
+                min: [50, 'Max length minimum is 50 characters'],
+                max: [2000, 'Max length maximum is 2000 characters'],
+                default: undefined
+              },
+              placeholder: {
+                type: String,
+                maxlength: [100, 'Placeholder cannot exceed 100 characters'],
+                default: undefined
+              }
+            }
+          ],
+          default: []
+        }
+      },
+      required: false,
+      default: undefined
+    },
     pipeline: {
       type: [
         {
@@ -424,6 +547,60 @@ AnimationSchema.set('toJSON', {
     ret.id = ret._id.toString()
     delete ret.__v
     return ret
+  }
+})
+
+/**
+ * Pre-save validation hook for inputCollection
+ * Validates business rules:
+ * - Max 1 selfie per animation
+ * - Conditional validation per element type
+ */
+AnimationSchema.pre('save', function () {
+  // Only validate if inputCollection exists and has been modified
+  if (!this.inputCollection || !this.isModified('inputCollection')) {
+    return
+  }
+
+  const elements = this.inputCollection.elements || []
+
+  // Validate max 1 selfie
+  const selfieCount = elements.filter((el) => el.type === 'selfie').length
+  if (selfieCount > 1) {
+    throw new Error('Maximum 1 selfie autorisé par animation')
+  }
+
+  // Conditional validation per type
+  for (const element of elements) {
+    if (element.type === 'choice') {
+      if (!element.question || element.question.trim() === '') {
+        throw new Error(`Question requise pour élément choice (id: ${element.id})`)
+      }
+      if (!element.options || element.options.length < 2) {
+        throw new Error(`Minimum 2 options requises pour élément choice (id: ${element.id})`)
+      }
+    }
+
+    if (element.type === 'slider') {
+      if (!element.question || element.question.trim() === '') {
+        throw new Error(`Question requise pour élément slider (id: ${element.id})`)
+      }
+      if (element.min === undefined || element.max === undefined) {
+        throw new Error(`Min et max requis pour élément slider (id: ${element.id})`)
+      }
+      if (element.min >= element.max) {
+        throw new Error(`Max doit être > min pour élément slider (id: ${element.id})`)
+      }
+    }
+
+    if (element.type === 'free-text') {
+      if (!element.question || element.question.trim() === '') {
+        throw new Error(`Question requise pour élément free-text (id: ${element.id})`)
+      }
+      if (!element.maxLength) {
+        throw new Error(`maxLength requis pour élément free-text (id: ${element.id})`)
+      }
+    }
   }
 })
 

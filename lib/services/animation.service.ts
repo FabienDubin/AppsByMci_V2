@@ -171,6 +171,7 @@ export class AnimationService {
       accessValidation: obj.accessValidation,
       accessConfig: obj.accessConfig, // Step 2
       baseFields: obj.baseFields, // Step 2
+      inputCollection: obj.inputCollection, // Step 3
       questions: obj.questions,
       pipeline: obj.pipeline,
       aiModel: obj.aiModel,
