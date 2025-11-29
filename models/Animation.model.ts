@@ -177,7 +177,7 @@ export interface IEmailConfig {
 }
 
 /**
- * Display configuration (Step 6)
+ * Display configuration (Step 6 - Legacy, kept for backward compatibility)
  */
 export interface IDisplayConfig {
   enabled: boolean
@@ -188,13 +188,66 @@ export interface IDisplayConfig {
 }
 
 /**
- * Customization configuration (Step 7)
+ * Public Display configuration (Step 6 - New)
  */
-export interface ICustomization {
+export interface IPublicDisplayConfig {
+  enabled: boolean
+  layout: 'masonry' | 'grid' | 'carousel'
+  columns?: number // Required if layout !== 'carousel'
+  autoScroll?: boolean // Auto-scroll for Masonry/Grid
+  autoScrollSpeed?: 'slow' | 'medium' | 'fast' // Scroll speed
+  showParticipantName: boolean
+  refreshInterval: number // 5-60 seconds
+}
+
+/**
+ * Customization configuration (Step 7 - Legacy, kept for backward compatibility)
+ */
+export interface ICustomizationLegacy {
   colors: Record<string, string>
   logo?: string
   theme: string
 }
+
+/**
+ * Text Card configuration (Step 7 - New)
+ * Overlay card ensuring text readability over backgrounds
+ */
+export interface ITextCard {
+  enabled: boolean
+  backgroundColor: string // hex #RRGGBB
+  opacity: number // 0-100
+  borderRadius: number // 0-24
+  padding: number // 8-32
+}
+
+/**
+ * Customization configuration (Step 7 - New)
+ */
+export interface ICustomization {
+  primaryColor: string // hex #RRGGBB
+  secondaryColor: string // hex #RRGGBB
+  logo?: string // URL Azure Blob
+  backgroundImage?: string // URL Azure Blob
+  backgroundColor?: string // hex #RRGGBB
+  backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
+  textCard?: ITextCard // Text card overlay configuration
+  theme: 'light' | 'dark' | 'auto'
+  welcomeMessage?: string // max 200 chars
+  submissionMessage: string // max 100 chars
+  loadingMessages: string[] // min 3, max 10
+  thankYouMessage: string // max 100 chars
+}
+
+/**
+ * Default loading messages
+ */
+export const DEFAULT_LOADING_MESSAGES = [
+  '🎨 L\'IA travaille sur ton image...',
+  '✨ Génération en cours...',
+  '🚀 Presque terminé...',
+  '⏳ Encore quelques secondes...'
+]
 
 /**
  * Animation document interface
@@ -214,8 +267,9 @@ export interface IAnimation extends Document {
   questions: IQuestion[]
   aiModel?: IAIModel
   emailConfig?: IEmailConfig
-  displayConfig?: IDisplayConfig
-  customization?: ICustomization
+  displayConfig?: IDisplayConfig // Legacy - deprecated
+  publicDisplayConfig?: IPublicDisplayConfig // Step 6 - New
+  customization?: ICustomization // Step 7 - New (replaces legacy)
   qrCodeUrl?: string
   publishedAt?: Date
   createdAt: Date
@@ -620,6 +674,7 @@ const AnimationSchema = new Schema<IAnimation>(
         }
       }
     },
+    // Step 6: Legacy displayConfig (deprecated, kept for backward compatibility)
     displayConfig: {
       enabled: {
         type: Boolean,
@@ -642,17 +697,137 @@ const AnimationSchema = new Schema<IAnimation>(
         default: undefined
       }
     },
+    // Step 6: Public Display Config (new)
+    publicDisplayConfig: {
+      enabled: {
+        type: Boolean,
+        default: true
+      },
+      layout: {
+        type: String,
+        enum: ['masonry', 'grid', 'carousel'],
+        default: 'masonry'
+      },
+      columns: {
+        type: Number,
+        min: [2, 'Minimum 2 colonnes'],
+        max: [5, 'Maximum 5 colonnes'],
+        default: 3
+      },
+      autoScroll: {
+        type: Boolean,
+        default: true
+      },
+      autoScrollSpeed: {
+        type: String,
+        enum: ['slow', 'medium', 'fast'],
+        default: 'medium'
+      },
+      showParticipantName: {
+        type: Boolean,
+        default: true
+      },
+      refreshInterval: {
+        type: Number,
+        min: [5, 'Minimum 5 secondes'],
+        max: [60, 'Maximum 60 secondes'],
+        default: 10
+      }
+    },
+    // Step 7: Customization (new complete schema)
     customization: {
-      colors: {
-        type: Schema.Types.Mixed,
-        default: undefined
+      primaryColor: {
+        type: String,
+        match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #000000)'],
+        default: '#000000'
+      },
+      secondaryColor: {
+        type: String,
+        match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #71717a)'],
+        default: '#71717a'
       },
       logo: {
         type: String,
         default: undefined
       },
+      backgroundImage: {
+        type: String,
+        default: undefined
+      },
+      backgroundColor: {
+        type: String,
+        match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide'],
+        default: undefined
+      },
+      backgroundColorOpacity: {
+        type: Number,
+        min: [0, 'Opacité minimum 0%'],
+        max: [100, 'Opacité maximum 100%'],
+        default: 50
+      },
+      textCard: {
+        enabled: {
+          type: Boolean,
+          default: true
+        },
+        backgroundColor: {
+          type: String,
+          match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #FFFFFF)'],
+          default: '#FFFFFF'
+        },
+        opacity: {
+          type: Number,
+          min: [0, 'Opacité minimum 0%'],
+          max: [100, 'Opacité maximum 100%'],
+          default: 90
+        },
+        borderRadius: {
+          type: Number,
+          min: [0, 'Arrondi minimum 0px'],
+          max: [24, 'Arrondi maximum 24px'],
+          default: 12
+        },
+        padding: {
+          type: Number,
+          min: [8, 'Padding minimum 8px'],
+          max: [32, 'Padding maximum 32px'],
+          default: 16
+        }
+      },
       theme: {
         type: String,
+        enum: ['light', 'dark', 'auto'],
+        default: 'auto'
+      },
+      welcomeMessage: {
+        type: String,
+        maxlength: [200, 'Le message de bienvenue ne peut pas dépasser 200 caractères'],
+        default: undefined
+      },
+      submissionMessage: {
+        type: String,
+        maxlength: [100, 'Le message après soumission ne peut pas dépasser 100 caractères'],
+        default: 'Merci ! Votre résultat arrive...'
+      },
+      loadingMessages: {
+        type: [String],
+        validate: {
+          validator: function (messages: string[]) {
+            if (!messages || messages.length === 0) return true // Will use defaults
+            return messages.length >= 3 && messages.length <= 10
+          },
+          message: 'loadingMessages doit contenir entre 3 et 10 messages'
+        },
+        default: DEFAULT_LOADING_MESSAGES
+      },
+      thankYouMessage: {
+        type: String,
+        maxlength: [100, 'Le message de remerciement ne peut pas dépasser 100 caractères'],
+        default: 'Merci d\'avoir participé !'
+      },
+      // Legacy field for backward compatibility
+      colors: {
+        type: Schema.Types.Mixed,
         default: undefined
       }
     },

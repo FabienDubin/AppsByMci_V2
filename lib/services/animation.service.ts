@@ -142,10 +142,41 @@ export class AnimationService {
     }
 
     // Update animation fields using set() for proper Mongoose change tracking
-    // Object.assign doesn't trigger Mongoose change detection on nested objects
+    // For nested objects (publicDisplayConfig, customization), we need to merge
+    // with existing values to preserve fields not being updated
     for (const [key, value] of Object.entries(data)) {
-      animation.set(key, value)
+      if (key === 'publicDisplayConfig' && value && typeof value === 'object') {
+        // Merge with existing publicDisplayConfig
+        const existing = animation.publicDisplayConfig || {}
+        animation.set('publicDisplayConfig', { ...existing, ...value })
+      } else if (key === 'customization' && value && typeof value === 'object') {
+        // Deep merge with existing customization to preserve nested objects like textCard
+        const existing = (animation.customization || {}) as Record<string, any>
+        const incoming = value as Record<string, any>
+
+        // Deep merge textCard if both exist
+        const mergedTextCard = incoming.textCard !== undefined
+          ? { ...(existing.textCard || {}), ...incoming.textCard }
+          : existing.textCard
+
+        animation.set('customization', {
+          ...existing,
+          ...incoming,
+          ...(mergedTextCard ? { textCard: mergedTextCard } : {}),
+        })
+      } else {
+        animation.set(key, value)
+      }
     }
+
+    // Mark nested paths as modified to ensure Mongoose saves them
+    if (data.publicDisplayConfig) {
+      animation.markModified('publicDisplayConfig')
+    }
+    if (data.customization) {
+      animation.markModified('customization')
+    }
+
     await animation.save()
 
     logger.info(
@@ -179,8 +210,8 @@ export class AnimationService {
       pipeline: obj.pipeline,
       aiModel: obj.aiModel,
       emailConfig: obj.emailConfig,
-      displayConfig: obj.displayConfig,
-      customization: obj.customization,
+      publicDisplayConfig: obj.publicDisplayConfig, // Step 6
+      customization: obj.customization, // Step 7
       qrCodeUrl: obj.qrCodeUrl,
       publishedAt: obj.publishedAt,
     }

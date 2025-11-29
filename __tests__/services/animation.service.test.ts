@@ -164,6 +164,8 @@ describe('AnimationService', () => {
         name: 'Original Name',
         slug: 'original-slug',
         save: jest.fn().mockResolvedValue(true),
+        set: jest.fn(),
+        markModified: jest.fn(),
       }
 
       mockAnimation.findById.mockResolvedValue(mockAnimationDoc as any)
@@ -181,6 +183,8 @@ describe('AnimationService', () => {
         userId: { toString: () => userId },
         slug: 'old-slug',
         save: jest.fn().mockResolvedValue(true),
+        set: jest.fn(),
+        markModified: jest.fn(),
       }
 
       mockAnimation.findById.mockResolvedValue(mockAnimationDoc as any)
@@ -316,6 +320,8 @@ describe('AnimationService', () => {
         name: 'Test Animation',
         slug: 'test-animation',
         save: jest.fn().mockResolvedValue(true),
+        set: jest.fn(),
+        markModified: jest.fn(),
       }
 
       mockAnimation.findById.mockResolvedValue(mockAnimationDoc as any)

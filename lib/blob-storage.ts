@@ -17,7 +17,25 @@ const CONTAINERS = {
   GENERATED_IMAGES: "generated-images", // AI-generated images (private with SAS access)
   UPLOADS: "uploads", // Participant selfies (private)
   QRCODES: "qrcodes", // Animation QR codes (private with SAS access)
+  LOGOS: "logos", // Animation logos (public read)
+  BACKGROUNDS: "backgrounds", // Animation backgrounds (public read)
 } as const;
+
+/**
+ * Allowed MIME types for logo uploads
+ */
+const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'] as const;
+
+/**
+ * Allowed MIME types for background uploads
+ */
+const ALLOWED_BACKGROUND_TYPES = ['image/png', 'image/jpeg', 'image/jpg'] as const;
+
+/**
+ * Maximum file sizes
+ */
+const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2 MB
+const MAX_BACKGROUND_SIZE = 5 * 1024 * 1024; // 5 MB
 
 /**
  * File upload options
@@ -117,6 +135,8 @@ class BlobStorageService {
       { name: CONTAINERS.GENERATED_IMAGES }, // private - use SAS URLs for access
       { name: CONTAINERS.UPLOADS }, // private (no public access)
       { name: CONTAINERS.QRCODES }, // private - use SAS URLs for access
+      { name: CONTAINERS.LOGOS, accessType: 'blob' as PublicAccessType }, // public blob read
+      { name: CONTAINERS.BACKGROUNDS, accessType: 'blob' as PublicAccessType }, // public blob read
     ];
 
     for (const config of containersConfig) {
@@ -394,10 +414,147 @@ class BlobStorageService {
   isInitialized(): boolean {
     return this.initialized;
   }
+
+  /**
+   * Upload a logo file to Azure Blob Storage
+   * @param buffer - Buffer containing file data
+   * @param contentType - MIME type of the file
+   * @param userId - User ID for organizing files
+   * @returns Public URL of the uploaded logo
+   */
+  async uploadLogo(
+    buffer: Buffer,
+    contentType: string,
+    userId: string
+  ): Promise<string> {
+    // Validate file size
+    if (buffer.length > MAX_LOGO_SIZE) {
+      throw new Error(`Le logo ne doit pas dépasser ${MAX_LOGO_SIZE / (1024 * 1024)} MB`);
+    }
+
+    // Validate content type
+    if (!ALLOWED_LOGO_TYPES.includes(contentType as typeof ALLOWED_LOGO_TYPES[number])) {
+      throw new Error(`Format de fichier non supporté. Formats acceptés: ${ALLOWED_LOGO_TYPES.join(', ')}`);
+    }
+
+    // Generate unique blob name
+    const timestamp = Date.now();
+    const uuid = crypto.randomUUID();
+    const extension = this.getExtensionFromMimeType(contentType);
+    const blobName = `${userId}/${timestamp}-${uuid}.${extension}`;
+
+    // Upload file
+    const result = await this.uploadFile(CONTAINERS.LOGOS, blobName, buffer, {
+      contentType,
+      metadata: { userId, uploadedAt: new Date().toISOString() },
+    });
+
+    logger.info({ msg: 'Logo uploaded', userId, blobName });
+
+    // Return public URL (container has public blob access)
+    return result.url;
+  }
+
+  /**
+   * Upload a background image to Azure Blob Storage
+   * @param buffer - Buffer containing file data
+   * @param contentType - MIME type of the file
+   * @param userId - User ID for organizing files
+   * @returns Public URL of the uploaded background
+   */
+  async uploadBackground(
+    buffer: Buffer,
+    contentType: string,
+    userId: string
+  ): Promise<string> {
+    // Validate file size
+    if (buffer.length > MAX_BACKGROUND_SIZE) {
+      throw new Error(`L'image de fond ne doit pas dépasser ${MAX_BACKGROUND_SIZE / (1024 * 1024)} MB`);
+    }
+
+    // Validate content type
+    if (!ALLOWED_BACKGROUND_TYPES.includes(contentType as typeof ALLOWED_BACKGROUND_TYPES[number])) {
+      throw new Error(`Format de fichier non supporté. Formats acceptés: ${ALLOWED_BACKGROUND_TYPES.join(', ')}`);
+    }
+
+    // Generate unique blob name
+    const timestamp = Date.now();
+    const uuid = crypto.randomUUID();
+    const extension = this.getExtensionFromMimeType(contentType);
+    const blobName = `${userId}/${timestamp}-${uuid}.${extension}`;
+
+    // Upload file
+    const result = await this.uploadFile(CONTAINERS.BACKGROUNDS, blobName, buffer, {
+      contentType,
+      metadata: { userId, uploadedAt: new Date().toISOString() },
+    });
+
+    logger.info({ msg: 'Background uploaded', userId, blobName });
+
+    // Return public URL (container has public blob access)
+    return result.url;
+  }
+
+  /**
+   * Delete a logo file from Azure Blob Storage
+   * @param url - Public URL of the logo to delete
+   */
+  async deleteLogo(url: string): Promise<void> {
+    const blobName = this.extractBlobNameFromUrl(url, CONTAINERS.LOGOS);
+    if (blobName) {
+      await this.deleteFile(CONTAINERS.LOGOS, blobName);
+    }
+  }
+
+  /**
+   * Delete a background file from Azure Blob Storage
+   * @param url - Public URL of the background to delete
+   */
+  async deleteBackground(url: string): Promise<void> {
+    const blobName = this.extractBlobNameFromUrl(url, CONTAINERS.BACKGROUNDS);
+    if (blobName) {
+      await this.deleteFile(CONTAINERS.BACKGROUNDS, blobName);
+    }
+  }
+
+  /**
+   * Extract blob name from URL
+   * @param url - Full URL of the blob
+   * @param containerName - Expected container name
+   * @returns Blob name or null if URL doesn't match
+   */
+  private extractBlobNameFromUrl(url: string, containerName: string): string | null {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      // Path format: /containerName/blobName
+      if (pathParts[1] === containerName) {
+        return pathParts.slice(2).join('/');
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get file extension from MIME type
+   * @param mimeType - MIME type string
+   * @returns File extension without dot
+   */
+  private getExtensionFromMimeType(mimeType: string): string {
+    const mimeToExt: Record<string, string> = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/svg+xml': 'svg',
+    };
+    return mimeToExt[mimeType] || 'bin';
+  }
 }
 
 // Export singleton instance
 export const blobStorageService = new BlobStorageService();
 
 // Export constants for external use
-export { CONTAINERS };
+export { CONTAINERS, ALLOWED_LOGO_TYPES, ALLOWED_BACKGROUND_TYPES, MAX_LOGO_SIZE, MAX_BACKGROUND_SIZE };

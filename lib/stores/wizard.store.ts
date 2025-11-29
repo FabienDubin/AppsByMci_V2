@@ -71,6 +71,82 @@ export interface PipelineBlock {
   config: PipelineBlockConfig
 }
 
+// Step 6: Public Display Config type
+export interface PublicDisplayConfig {
+  enabled: boolean
+  layout: 'masonry' | 'grid' | 'carousel'
+  columns?: number // Required if layout !== 'carousel'
+  autoScroll?: boolean // Auto-scroll for Masonry/Grid
+  autoScrollSpeed?: 'slow' | 'medium' | 'fast' // Scroll speed
+  showParticipantName: boolean
+  refreshInterval: number // 5-60 seconds
+}
+
+// Step 7: Text Card type
+export interface TextCard {
+  enabled: boolean
+  backgroundColor: string // hex #RRGGBB
+  opacity: number // 0-100
+  borderRadius: number // 0-24
+  padding: number // 8-32
+}
+
+// Step 7: Customization type
+export interface Customization {
+  primaryColor: string // hex #RRGGBB
+  secondaryColor: string // hex #RRGGBB
+  logo?: string // URL Azure Blob
+  backgroundImage?: string // URL Azure Blob
+  backgroundColor?: string // hex #RRGGBB
+  backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
+  textCard?: TextCard // Text card overlay configuration
+  theme: 'light' | 'dark' | 'auto'
+  welcomeMessage?: string // max 200 chars
+  submissionMessage: string // max 100 chars, default provided
+  loadingMessages: string[] // min 3, max 10
+  thankYouMessage: string // max 100 chars, default provided
+}
+
+// Default loading messages for Step 7
+export const DEFAULT_LOADING_MESSAGES = [
+  '🎨 L\'IA travaille sur ton image...',
+  '✨ Génération en cours...',
+  '🚀 Presque terminé...',
+  '⏳ Encore quelques secondes...'
+]
+
+// Default public display config for Step 6
+export const DEFAULT_PUBLIC_DISPLAY_CONFIG: PublicDisplayConfig = {
+  enabled: true,
+  layout: 'masonry',
+  columns: 3,
+  autoScroll: true,
+  autoScrollSpeed: 'medium',
+  showParticipantName: true,
+  refreshInterval: 10
+}
+
+// Default text card config for Step 7
+export const DEFAULT_TEXT_CARD: TextCard = {
+  enabled: true,
+  backgroundColor: '#FFFFFF',
+  opacity: 90,
+  borderRadius: 12,
+  padding: 16,
+}
+
+// Default customization config for Step 7
+export const DEFAULT_CUSTOMIZATION: Customization = {
+  primaryColor: '#000000',
+  secondaryColor: '#71717a',
+  backgroundColorOpacity: 50,
+  textCard: DEFAULT_TEXT_CARD,
+  theme: 'auto',
+  submissionMessage: 'Merci ! Votre résultat arrive...',
+  loadingMessages: DEFAULT_LOADING_MESSAGES,
+  thankYouMessage: 'Merci d\'avoir participé !'
+}
+
 // Animation data type (partial during wizard)
 export interface AnimationData {
   _id?: string
@@ -103,6 +179,7 @@ export interface AnimationData {
     prompt: string
     variables: string[]
   }
+  // Step 5: Email Config
   emailConfig?: {
     enabled: boolean
     subject?: string
@@ -110,17 +187,17 @@ export interface AnimationData {
     senderName: string
     senderEmail: string
   }
+  // Step 6: Public Display Config
+  publicDisplayConfig?: PublicDisplayConfig
+  // Step 7: Customization
+  customization?: Customization
+  // Legacy fields (deprecated)
   displayConfig?: {
     enabled: boolean
     layout: string
     columns: number
     showNames: boolean
     refreshInterval: number
-  }
-  customization?: {
-    colors: Record<string, string>
-    logo?: string
-    theme: string
   }
   qrCodeUrl?: string
   publishedAt?: Date

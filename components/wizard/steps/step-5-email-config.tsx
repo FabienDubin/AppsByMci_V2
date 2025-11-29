@@ -37,6 +37,16 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Collapsible,
   CollapsibleContent,
 } from '@/components/ui/collapsible'
@@ -44,13 +54,14 @@ import { AlertTriangle, Mail, Info } from 'lucide-react'
 
 interface Step5EmailConfigProps {
   onValidationChange?: (isValid: boolean) => void
+  onUpdateBaseFields?: (baseFields: any) => Promise<void>
 }
 
 /**
  * Step 5: Email Configuration
  * Allows admins to configure automatic email sending to participants
  */
-export function Step5EmailConfig({ onValidationChange }: Step5EmailConfigProps) {
+export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Step5EmailConfigProps) {
   const { animationData, updateData } = useWizardStore()
 
   // Get available variables from animation data
@@ -85,6 +96,12 @@ export function Step5EmailConfig({ onValidationChange }: Step5EmailConfigProps) 
 
   // Track which field has focus for variable insertion
   const [activeField, setActiveField] = useState<'subject' | 'body' | null>(null)
+
+  // Dialog state for email collection warning
+  const [showEmailRequiredDialog, setShowEmailRequiredDialog] = useState(false)
+
+  // Check if email collection is enabled in baseFields (Step 2)
+  const isEmailCollectionEnabled = animationData.baseFields?.email?.enabled ?? false
 
   // Refs for inserting variables
   const subjectInputRef = useRef<HTMLInputElement>(null)
@@ -163,6 +180,18 @@ export function Step5EmailConfig({ onValidationChange }: Step5EmailConfigProps) 
 
   // Initialize with default template when enabling for the first time
   const handleEnableToggle = (checked: boolean) => {
+    // If enabling and email collection is not active, show dialog
+    if (checked && !isEmailCollectionEnabled) {
+      setShowEmailRequiredDialog(true)
+      return
+    }
+
+    // Normal toggle behavior
+    activateEmailSending(checked)
+  }
+
+  // Helper to activate email sending with defaults
+  const activateEmailSending = (checked: boolean) => {
     setValue('enabled', checked)
     if (checked && !bodyTemplate) {
       setValue('bodyTemplate', DEFAULT_EMAIL_TEMPLATE)
@@ -170,6 +199,31 @@ export function Step5EmailConfig({ onValidationChange }: Step5EmailConfigProps) 
     if (checked && !subject) {
       setValue('subject', DEFAULT_EMAIL_SUBJECT)
     }
+  }
+
+  // Handle enabling email collection from dialog
+  const handleEnableEmailCollection = async () => {
+    // Build new baseFields with email enabled
+    const newBaseFields = {
+      ...animationData.baseFields,
+      email: {
+        ...animationData.baseFields?.email,
+        enabled: true,
+        required: true, // Email should be required if we're sending emails
+      },
+    }
+
+    // Update local state
+    updateData({ baseFields: newBaseFields })
+
+    // Save to database via callback if provided
+    if (onUpdateBaseFields) {
+      await onUpdateBaseFields(newBaseFields)
+    }
+
+    // Now activate email sending
+    activateEmailSending(true)
+    setShowEmailRequiredDialog(false)
   }
 
   return (
@@ -370,6 +424,34 @@ export function Step5EmailConfig({ onValidationChange }: Step5EmailConfigProps) 
           )}
         </form>
       </Form>
+
+      {/* Dialog: Email collection required */}
+      <AlertDialog open={showEmailRequiredDialog} onOpenChange={setShowEmailRequiredDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Collecte d&apos;email requise
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Pour envoyer des emails aux participants, tu dois d&apos;abord activer la collecte de leur adresse email.
+                </p>
+                <p className="text-muted-foreground/80">
+                  La collecte d&apos;email sera activée automatiquement dans les champs de base (Étape 2).
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEnableEmailCollection}>
+              Activer la collecte d&apos;email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -8,13 +8,15 @@ import { Step2AccessAndBaseFields } from '@/components/wizard/steps/step-2-acces
 import { Step3AdvancedInputs } from '@/components/wizard/steps/step-3-advanced-inputs'
 import { Step4Pipeline } from '@/components/wizard/steps/step-4-pipeline'
 import { Step5EmailConfig } from '@/components/wizard/steps/step-5-email-config'
+import { Step6PublicDisplay } from '@/components/wizard/steps/step-6-public-display'
+import { Step7Customization } from '@/components/wizard/steps/step-7-customization'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { RotateCcw } from 'lucide-react'
 import type { Step1Data } from '@/lib/schemas/animation.schema'
-import { step3Schema, step4Schema, step5Schema } from '@/lib/schemas/animation.schema'
-import { DEFAULT_EMAIL_CONFIG } from '@/lib/stores/wizard.store'
+import { step3Schema, step4Schema, step5Schema, step6Schema, step7Schema } from '@/lib/schemas/animation.schema'
+import { DEFAULT_EMAIL_CONFIG, DEFAULT_PUBLIC_DISPLAY_CONFIG, DEFAULT_CUSTOMIZATION, DEFAULT_TEXT_CARD } from '@/lib/stores/wizard.store'
 import { validatePipelineLogic } from '@/lib/utils/pipeline-validator'
 
 // Step titles for wizard
@@ -133,6 +135,47 @@ export default function NewAnimationPage() {
       setError('Une erreur inattendue est survenue')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * Save animation data without advancing to next step
+   * Used for intermediate saves (e.g., enabling email collection from Step 5)
+   */
+  const saveData = async (data: any): Promise<boolean> => {
+    if (!animationId) {
+      toast.error('Aucune animation en cours')
+      return false
+    }
+
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        throw new Error('Non authentifié')
+      }
+
+      const response = await fetch(`/api/animations/${animationId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors de la mise à jour')
+      }
+
+      // Update local data
+      updateData(result.data)
+      return true
+    } catch (error: any) {
+      console.error('Error saving animation:', error)
+      toast.error(error.message || 'Une erreur est survenue')
+      return false
     }
   }
 
@@ -371,7 +414,12 @@ export default function NewAnimationPage() {
               {/* Step 5: Configuration Email */}
               {currentStep === 5 && (
                 <div className="space-y-6">
-                  <Step5EmailConfig />
+                  <Step5EmailConfig
+                    onUpdateBaseFields={async (baseFields) => {
+                      // Save baseFields update to database without advancing step
+                      await saveData({ baseFields })
+                    }}
+                  />
 
                   <div className="flex justify-between pt-4 border-t">
                     <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
@@ -407,20 +455,100 @@ export default function NewAnimationPage() {
                 </div>
               )}
 
-              {/* Steps 6-8: Placeholder */}
-              {currentStep >= 6 && currentStep <= 8 && (
+              {/* Step 6: Écran Public */}
+              {currentStep === 6 && (
+                <div className="space-y-6">
+                  <Step6PublicDisplay />
+
+                  <div className="flex justify-between pt-4 border-t">
+                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
+                      Précédent
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Get public display config from store, merge with defaults
+                        const publicDisplayConfig = {
+                          ...DEFAULT_PUBLIC_DISPLAY_CONFIG,
+                          ...animationData.publicDisplayConfig,
+                        }
+
+                        try {
+                          // Validate with Zod schema
+                          step6Schema.parse({ publicDisplayConfig })
+
+                          // Save and proceed
+                          await handleNextStep({ publicDisplayConfig })
+                        } catch (error: any) {
+                          if (error.errors) {
+                            toast.error(error.errors[0]?.message || 'Erreur de validation')
+                          } else {
+                            toast.error('Erreur de validation de la configuration écran public')
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 7: Personnalisation */}
+              {currentStep === 7 && (
+                <div className="space-y-6">
+                  <Step7Customization />
+
+                  <div className="flex justify-between pt-4 border-t">
+                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
+                      Précédent
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Get customization from store, deep merge with defaults
+                        // Ensure textCard is properly merged (nested object)
+                        const storeCustomization = animationData.customization
+                        const customization = {
+                          ...DEFAULT_CUSTOMIZATION,
+                          ...(storeCustomization || {}),
+                          // Deep merge textCard
+                          textCard: {
+                            ...DEFAULT_TEXT_CARD,
+                            ...(storeCustomization?.textCard || {}),
+                          },
+                        }
+
+                        try {
+                          // Validate with Zod schema
+                          step7Schema.parse({ customization })
+
+                          // Save and proceed
+                          await handleNextStep({ customization })
+                        } catch (error: any) {
+                          if (error.errors) {
+                            toast.error(error.errors[0]?.message || 'Erreur de validation')
+                          } else {
+                            toast.error('Erreur de validation de la personnalisation')
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 8: Récapitulatif & Publication - Placeholder */}
+              {currentStep === 8 && (
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold">{STEP_TITLES[currentStep - 1]}</h2>
-                  <p className="text-gray-500">Cette étape sera implémentée dans les prochaines stories</p>
+                  <p className="text-gray-500">Cette étape sera implémentée dans la prochaine story</p>
                   <div className="flex justify-between pt-4">
                     <Button onClick={handlePrevStep} variant="outline">
                       Précédent
                     </Button>
-                    {currentStep < 8 && (
-                      <Button onClick={() => handleNextStep({})}>
-                        Suivant
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}

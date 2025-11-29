@@ -287,6 +287,19 @@ export const updateAnimationSchema = z.object({
       senderEmail: z.string().email().default('noreply@appsbymci.com'),
     })
     .optional(),
+  // Step 6: Public Display Config (new complete schema)
+  publicDisplayConfig: z
+    .object({
+      enabled: z.boolean().optional(),
+      layout: z.enum(['masonry', 'grid', 'carousel']).optional(),
+      columns: z.number().int().min(2).max(5).optional(),
+      autoScroll: z.boolean().optional(),
+      autoScrollSpeed: z.enum(['slow', 'medium', 'fast']).optional(),
+      showParticipantName: z.boolean().optional(),
+      refreshInterval: z.number().int().min(5).max(60).optional(),
+    })
+    .optional(),
+  // Legacy displayConfig (deprecated, kept for backward compatibility)
   displayConfig: z
     .object({
       enabled: z.boolean(),
@@ -296,11 +309,29 @@ export const updateAnimationSchema = z.object({
       refreshInterval: z.number(),
     })
     .optional(),
+  // Step 7: Customization (new complete schema)
   customization: z
     .object({
-      colors: z.record(z.string()),
-      logo: z.string().optional(),
-      theme: z.string(),
+      primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      logo: z.string().url().optional(),
+      backgroundImage: z.string().url().optional(),
+      backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      backgroundColorOpacity: z.number().int().min(0).max(100).optional(),
+      textCard: z.object({
+        enabled: z.boolean(),
+        backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+        opacity: z.number().int().min(0).max(100),
+        borderRadius: z.number().int().min(0).max(24),
+        padding: z.number().int().min(8).max(32),
+      }).optional(),
+      theme: z.enum(['light', 'dark', 'auto']).optional(),
+      welcomeMessage: z.string().max(200).optional(),
+      submissionMessage: z.string().max(100).optional(),
+      loadingMessages: z.array(z.string().max(100)).min(3).max(10).optional(),
+      thankYouMessage: z.string().max(100).optional(),
+      // Legacy fields for backward compatibility
+      colors: z.record(z.string()).optional(),
     })
     .optional(),
   qrCodeUrl: z.string().optional(),
@@ -420,6 +451,144 @@ export const step4Schema = z
     }
   })
 
+// ==================== Step 6: Public Display Config ====================
+
+/**
+ * Default loading messages for Step 7
+ */
+export const DEFAULT_LOADING_MESSAGES = [
+  '🎨 L\'IA travaille sur ton image...',
+  '✨ Génération en cours...',
+  '🚀 Presque terminé...',
+  '⏳ Encore quelques secondes...'
+]
+
+/**
+ * Public Display Config schema (Step 6)
+ * Configuration for the public display screen (gallery)
+ */
+export const publicDisplayConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    layout: z.enum(['masonry', 'grid', 'carousel']),
+    columns: z.number().int().min(2, 'Minimum 2 colonnes').max(5, 'Maximum 5 colonnes').optional(),
+    autoScroll: z.boolean().optional(),
+    autoScrollSpeed: z.enum(['slow', 'medium', 'fast']).optional(),
+    showParticipantName: z.boolean(),
+    refreshInterval: z.number().int().min(5, 'Minimum 5 secondes').max(60, 'Maximum 60 secondes'),
+  })
+  .superRefine((data, ctx) => {
+    // Columns required if layout is masonry or grid (not carousel)
+    if (data.layout !== 'carousel' && data.columns === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Le nombre de colonnes est requis pour Masonry et Grid',
+        path: ['columns'],
+      })
+    }
+
+    // autoScrollSpeed required if autoScroll is enabled and layout is not carousel
+    if (data.layout !== 'carousel' && data.autoScroll && !data.autoScrollSpeed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'La vitesse de défilement est requise si auto-scroll est activé',
+        path: ['autoScrollSpeed'],
+      })
+    }
+  })
+
+/**
+ * Step 6 schema (Public Display Configuration)
+ * Wraps publicDisplayConfigSchema for step-level validation
+ */
+export const step6Schema = z.object({
+  publicDisplayConfig: publicDisplayConfigSchema,
+})
+
+// ==================== Step 7: Customization ====================
+
+/**
+ * Hex color regex validation (6 characters only, no short form)
+ */
+const hexColorRegex = /^#[0-9A-Fa-f]{6}$/
+
+/**
+ * Text Card schema (Step 7)
+ * Configuration for text card overlay ensuring text readability
+ */
+export const textCardSchema = z.object({
+  enabled: z.boolean(),
+  backgroundColor: z
+    .string()
+    .regex(hexColorRegex, 'Format de couleur invalide (ex: #FFFFFF)'),
+  opacity: z
+    .number()
+    .int()
+    .min(0, 'Opacité minimum 0%')
+    .max(100, 'Opacité maximum 100%'),
+  borderRadius: z
+    .number()
+    .int()
+    .min(0, 'Arrondi minimum 0px')
+    .max(24, 'Arrondi maximum 24px'),
+  padding: z
+    .number()
+    .int()
+    .min(8, 'Padding minimum 8px')
+    .max(32, 'Padding maximum 32px'),
+})
+
+/**
+ * Customization schema (Step 7)
+ * Configuration for branding and personalization
+ */
+export const customizationSchema = z.object({
+  primaryColor: z
+    .string()
+    .regex(hexColorRegex, 'Format de couleur invalide (ex: #000000)'),
+  secondaryColor: z
+    .string()
+    .regex(hexColorRegex, 'Format de couleur invalide (ex: #71717a)'),
+  logo: z.string().url('URL invalide pour le logo').optional(),
+  backgroundImage: z.string().url('URL invalide pour l\'image de fond').optional(),
+  backgroundColor: z
+    .string()
+    .regex(hexColorRegex, 'Format de couleur invalide')
+    .optional(),
+  backgroundColorOpacity: z
+    .number()
+    .int()
+    .min(0, 'Opacité minimum 0%')
+    .max(100, 'Opacité maximum 100%')
+    .optional(),
+  textCard: textCardSchema.optional(),
+  theme: z.enum(['light', 'dark', 'auto']),
+  welcomeMessage: z
+    .string()
+    .max(200, 'Le message de bienvenue ne peut pas dépasser 200 caractères')
+    .optional(),
+  submissionMessage: z
+    .string()
+    .max(100, 'Le message après soumission ne peut pas dépasser 100 caractères'),
+  loadingMessages: z
+    .array(z.string().max(100, 'Chaque message ne peut pas dépasser 100 caractères'))
+    .min(3, 'Minimum 3 messages requis')
+    .max(10, 'Maximum 10 messages autorisés'),
+  thankYouMessage: z
+    .string()
+    .max(100, 'Le message de remerciement ne peut pas dépasser 100 caractères'),
+})
+
+/**
+ * Step 7 schema (Customization)
+ * Wraps customizationSchema for step-level validation
+ */
+export const step7Schema = z.object({
+  customization: customizationSchema,
+})
+
+// ==================== Step 5: Email Config ====================
+
 /**
  * Email Config schema (Step 5)
  * Validation conditionnelle: si enabled=true, subject et bodyTemplate requis
@@ -479,3 +648,8 @@ export type PipelineBlock = z.infer<typeof pipelineBlockSchema>
 export type Step4Data = z.infer<typeof step4Schema>
 export type EmailConfig = z.infer<typeof emailConfigSchema>
 export type Step5Data = z.infer<typeof step5Schema>
+export type PublicDisplayConfig = z.infer<typeof publicDisplayConfigSchema>
+export type Step6Data = z.infer<typeof step6Schema>
+export type TextCard = z.infer<typeof textCardSchema>
+export type Customization = z.infer<typeof customizationSchema>
+export type Step7Data = z.infer<typeof step7Schema>
