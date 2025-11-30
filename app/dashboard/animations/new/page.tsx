@@ -9,7 +9,7 @@ import { Step3AdvancedInputs } from '@/components/wizard/steps/step-3-advanced-i
 import { Step4Pipeline } from '@/components/wizard/steps/step-4-pipeline'
 import { Step5EmailConfig } from '@/components/wizard/steps/step-5-email-config'
 import { Step6PublicDisplay } from '@/components/wizard/steps/step-6-public-display'
-import { Step7Customization } from '@/components/wizard/steps/step-7-customization'
+import { Step7Customization } from '@/components/wizard/steps/step-7/step-7-customization'
 import { Step8Content } from '@/components/wizard/step8/Step8Content'
 import { StepHeader } from '@/components/wizard/step-header'
 import { WizardNavigation } from '@/components/wizard/wizard-navigation'
