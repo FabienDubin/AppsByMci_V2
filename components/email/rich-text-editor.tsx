@@ -56,6 +56,7 @@ export function RichTextEditor({
         bulletList: false,
         orderedList: false,
         listItem: false,
+        link: false, // Disable default link to use our custom config
       }),
       Link.configure({
         openOnClick: false,

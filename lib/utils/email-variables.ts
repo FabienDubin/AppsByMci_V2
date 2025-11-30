@@ -106,10 +106,15 @@ export const replaceVariablesWithPlaceholders = (
     const display = getVariableDisplay(variable)
     const isValid = validVars.length === 0 || validVars.includes(variable)
 
-    // Special handling for imageUrl - replace with image placeholder
+    // Special handling for imageUrl - replace entire <img> tag with placeholder
     if (variable === '{imageUrl}') {
-      const imgPlaceholder = `<span style="display: inline-block; background: #e2e8f0; padding: 8px 16px; border-radius: 4px; color: #64748b; font-size: 14px;">🖼️ Image générée</span>`
-      result = result.replace(new RegExp(escapeRegExp(variable), 'g'), imgPlaceholder)
+      // Match <img src="{imageUrl}" ...> and replace whole tag
+      const imgTagRegex = /<img[^>]*src=["']\{imageUrl\}["'][^>]*>/gi
+      const imgPlaceholder = `<div style="display: inline-block; background: #e2e8f0; padding: 32px 64px; border-radius: 8px; color: #64748b; font-size: 14px; text-align: center; border: 2px dashed #cbd5e1;">🖼️ Image générée (aperçu)</div>`
+      result = result.replace(imgTagRegex, imgPlaceholder)
+
+      // Also replace standalone {imageUrl} if not in img tag
+      result = result.replace(new RegExp(escapeRegExp(variable), 'g'), '[IMAGE_URL]')
     } else {
       // Regular variable - show as styled placeholder
       const className = isValid ? 'text-primary font-semibold' : 'text-destructive font-semibold'
