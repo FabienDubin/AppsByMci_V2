@@ -147,6 +147,56 @@ export const DEFAULT_CUSTOMIZATION: Customization = {
   thankYouMessage: 'Merci d\'avoir participé !'
 }
 
+// Step 8: Animation Summary type for recap display
+export interface AnimationSummary {
+  generalInfo: {
+    name: string
+    description?: string
+    slug: string
+  }
+  accessConfig: {
+    type: string
+    displayText: string // "Accès libre" | "Code requis: XXX" | "Domaines: ..."
+  }
+  dataCollection: {
+    baseFieldsCount: number
+    baseFields: { label: string; fieldType: string; active: boolean }[]
+    advancedInputsCount: number
+    advancedInputs: { label: string; type: string }[]
+    selfieRequired: boolean
+    totalFields: number
+  }
+  pipeline: {
+    blocksCount: number
+    aiModel: string
+    blocks: { type: string; summary: string }[]
+    hasAiBlock: boolean
+  }
+  email: {
+    enabled: boolean
+    subject?: string
+    variablesCount?: number
+  }
+  publicDisplay: {
+    enabled: boolean
+    layout?: string
+    columns?: number
+    autoScroll?: boolean
+    autoScrollSpeed?: string
+    refreshInterval?: number
+  }
+  customization: {
+    primaryColor: string
+    secondaryColor: string
+    hasLogo: boolean
+    logoUrl?: string
+    theme: string
+    loadingMessagesCount: number
+  }
+  isComplete: boolean
+  validationErrors: { section: string; message: string }[]
+}
+
 // Animation data type (partial during wizard)
 export interface AnimationData {
   _id?: string

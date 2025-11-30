@@ -134,7 +134,7 @@ class BlobStorageService {
     }> = [
       { name: CONTAINERS.GENERATED_IMAGES }, // private - use SAS URLs for access
       { name: CONTAINERS.UPLOADS }, // private (no public access)
-      { name: CONTAINERS.QRCODES }, // private - use SAS URLs for access
+      { name: CONTAINERS.QRCODES, accessType: 'blob' as PublicAccessType }, // public blob read (QR codes can be public)
       { name: CONTAINERS.LOGOS, accessType: 'blob' as PublicAccessType }, // public blob read
       { name: CONTAINERS.BACKGROUNDS, accessType: 'blob' as PublicAccessType }, // public blob read
     ];
@@ -155,6 +155,24 @@ class BlobStorageService {
             access: config.accessType || 'private',
           });
         } else {
+          // Update access level if needed (for existing containers)
+          if (config.accessType) {
+            try {
+              await containerClient.setAccessPolicy(config.accessType);
+              logger.info({
+                msg: 'Container access level updated',
+                container: config.name,
+                access: config.accessType,
+              });
+            } catch (accessError) {
+              // Ignore if access level is already set
+              logger.debug({
+                msg: 'Container access level unchanged or error',
+                container: config.name,
+                error: accessError,
+              });
+            }
+          }
           logger.debug({ msg: 'Container already exists', container: config.name });
         }
       } catch (error) {

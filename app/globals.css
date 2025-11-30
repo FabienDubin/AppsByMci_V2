@@ -120,3 +120,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Sonner toast close button - inside toast on the right */
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  top: 50% !important;
+  right: 8px !important;
+  left: auto !important;
+  transform: translateY(-50%) !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  opacity: 1;
+}
+
+[data-sonner-toast] {
+  padding-right: 32px !important;
+}

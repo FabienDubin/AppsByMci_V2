@@ -1,6 +1,7 @@
 import Animation, { IAnimation } from '@/models/Animation.model'
 import { logger } from '@/lib/logger'
 import mongoose from 'mongoose'
+import { generateAndUploadQRCode, buildPublicUrl } from '@/lib/services/qrcode.service'
 
 // Animation error codes
 const ANIMATION_ERRORS = {
@@ -182,6 +183,166 @@ export class AnimationService {
     logger.info(
       { animationId, userId, updatedFields: Object.keys(data) },
       'Animation updated successfully'
+    )
+
+    return animation
+  }
+
+  /**
+   * Create a new animation with full data (for Step 8 publication or draft save)
+   * @param userId - The user ID creating the animation
+   * @param data - Complete animation data from wizard
+   * @param status - 'draft' or 'published'
+   * @returns Created animation with optional QR code
+   * @throws Error with code VALIDATION_2002 if slug already exists for published animations
+   */
+  async createAnimation(
+    userId: string,
+    data: Partial<IAnimation>,
+    status: 'draft' | 'published' = 'draft'
+  ): Promise<IAnimation> {
+    // For published animations, validate slug uniqueness
+    if (status === 'published' && data.slug) {
+      await this.validateSlugUnique(data.slug)
+    }
+
+    // Prepare animation data
+    const animationData: Partial<IAnimation> = {
+      ...data,
+      userId: new mongoose.Types.ObjectId(userId),
+      status,
+      accessValidation: data.accessValidation || { type: 'open' },
+      pipeline: data.pipeline || [],
+      questions: data.questions || [],
+    }
+
+    // For published animations, set publishedAt and generate QR code
+    if (status === 'published') {
+      animationData.publishedAt = new Date()
+
+      // Generate QR code
+      if (data.slug) {
+        try {
+          const publicUrl = buildPublicUrl(data.slug)
+          const qrCodeUrl = await generateAndUploadQRCode(publicUrl, data.slug)
+          animationData.qrCodeUrl = qrCodeUrl
+
+          logger.info(
+            { slug: data.slug, qrCodeUrl },
+            'QR code generated for published animation'
+          )
+        } catch (error: any) {
+          // QR code generation failed - log error but don't fail publication
+          logger.error(
+            { slug: data.slug, error: error.message },
+            'Failed to generate QR code - animation will be published without QR'
+          )
+          // Animation remains published, qrCodeUrl stays undefined
+        }
+      }
+    }
+
+    // Create the animation
+    const animation = await Animation.create(animationData)
+
+    logger.info(
+      {
+        animationId: animation._id.toString(),
+        userId,
+        slug: data.slug,
+        status,
+        hasQrCode: !!animationData.qrCodeUrl,
+      },
+      `Animation ${status === 'published' ? 'published' : 'saved as draft'} successfully`
+    )
+
+    return animation
+  }
+
+  /**
+   * Publish an existing draft animation
+   * @param animationId - The animation ID to publish
+   * @param userId - The user ID publishing the animation
+   * @returns Published animation with QR code
+   * @throws Error if animation not found, not owned by user, or slug already exists
+   */
+  async publishAnimation(
+    animationId: string,
+    userId: string
+  ): Promise<IAnimation> {
+    // Get animation and verify ownership
+    const animation = await this.getAnimationById(animationId, userId)
+
+    // Validate slug uniqueness for publication (excluding current animation)
+    await this.validateSlugUnique(animation.slug, animationId)
+
+    // Update status and publish metadata
+    animation.status = 'published'
+    animation.publishedAt = new Date()
+
+    // Generate QR code
+    try {
+      const publicUrl = buildPublicUrl(animation.slug)
+      const qrCodeUrl = await generateAndUploadQRCode(publicUrl, animation.slug)
+      animation.qrCodeUrl = qrCodeUrl
+
+      logger.info(
+        { animationId, slug: animation.slug, qrCodeUrl },
+        'QR code generated for published animation'
+      )
+    } catch (error: any) {
+      // QR code generation failed - log error but don't fail publication
+      logger.error(
+        { animationId, slug: animation.slug, error: error.message },
+        'Failed to generate QR code - animation will be published without QR'
+      )
+    }
+
+    await animation.save()
+
+    logger.info(
+      { animationId, userId, slug: animation.slug },
+      'Animation published successfully'
+    )
+
+    return animation
+  }
+
+  /**
+   * Save existing animation as draft with all wizard data
+   * @param animationId - The animation ID to save
+   * @param userId - The user ID saving the animation
+   * @param data - Complete animation data from wizard
+   * @returns Updated animation
+   */
+  async saveDraft(
+    animationId: string,
+    userId: string,
+    data: Partial<IAnimation>
+  ): Promise<IAnimation> {
+    // Get animation and verify ownership
+    const animation = await this.getAnimationById(animationId, userId)
+
+    // If slug is being updated, validate uniqueness
+    if (data.slug && data.slug !== animation.slug) {
+      await this.validateSlugUnique(data.slug, animationId)
+    }
+
+    // Update all fields from data
+    for (const [key, value] of Object.entries(data)) {
+      if (key !== '_id' && key !== 'userId') {
+        animation.set(key, value)
+      }
+    }
+
+    // Ensure status is draft
+    animation.status = 'draft'
+
+    await animation.save()
+
+    logger.info(
+      { animationId, userId, slug: animation.slug },
+      'Animation saved as draft'
     )
 
     return animation
