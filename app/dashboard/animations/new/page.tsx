@@ -11,6 +11,8 @@ import { Step5EmailConfig } from '@/components/wizard/steps/step-5-email-config'
 import { Step6PublicDisplay } from '@/components/wizard/steps/step-6-public-display'
 import { Step7Customization } from '@/components/wizard/steps/step-7-customization'
 import { Step8Content } from '@/components/wizard/step8/Step8Content'
+import { StepHeader } from '@/components/wizard/step-header'
+import { WizardNavigation } from '@/components/wizard/wizard-navigation'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -120,48 +122,40 @@ export default function NewAnimationPage() {
               {/* Step 3: Advanced Inputs (Selfie + Questions) */}
               {currentStep === 3 && (
                 <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-2">{STEP_TITLES[2]}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Configurez les éléments avancés à collecter auprès des participants
-                    </p>
-                  </div>
+                  <StepHeader
+                    title={STEP_TITLES[2]}
+                    description="Configurez les éléments avancés à collecter auprès des participants"
+                  />
 
                   <Step3AdvancedInputs />
 
-                  <div className="flex justify-between pt-4 border-t">
-                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
-                      Précédent
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Validate Step 3 data
-                        const inputCollection = animationData.inputCollection
+                  <WizardNavigation
+                    onPrev={handlePrevStep}
+                    onNext={async () => {
+                      // Validate Step 3 data
+                      const inputCollection = animationData.inputCollection
 
-                        if (!inputCollection || !inputCollection.elements || inputCollection.elements.length === 0) {
-                          toast.error('Vous devez ajouter au moins un élément de collecte')
-                          return
+                      if (!inputCollection || !inputCollection.elements || inputCollection.elements.length === 0) {
+                        toast.error('Vous devez ajouter au moins un élément de collecte')
+                        return
+                      }
+
+                      try {
+                        // Validate with Zod schema
+                        step3Schema.parse({ inputCollection })
+
+                        // Save and proceed
+                        await handleNextStep({ inputCollection })
+                      } catch (error: any) {
+                        if (error.errors) {
+                          toast.error(error.errors[0]?.message || 'Erreur de validation')
+                        } else {
+                          toast.error('Erreur de validation des données')
                         }
-
-                        try {
-                          // Validate with Zod schema
-                          step3Schema.parse({ inputCollection })
-
-                          // Save and proceed
-                          await handleNextStep({ inputCollection })
-                        } catch (error: any) {
-                          if (error.errors) {
-                            toast.error(error.errors[0]?.message || 'Erreur de validation')
-                          } else {
-                            toast.error('Erreur de validation des données')
-                          }
-                        }
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
 
@@ -170,59 +164,53 @@ export default function NewAnimationPage() {
                 <div className="space-y-6">
                   <Step4Pipeline />
 
-                  <div className="flex justify-between pt-4 border-t">
-                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
-                      Précédent
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Validate Step 4 data with intelligent pipeline validation
-                        const pipeline = animationData.pipeline || []
+                  <WizardNavigation
+                    onPrev={handlePrevStep}
+                    onNext={async () => {
+                      // Validate Step 4 data with intelligent pipeline validation
+                      const pipeline = animationData.pipeline || []
 
-                        try {
-                          // Zod validation (max blocks, config fields)
-                          step4Schema.parse({ pipeline })
+                      try {
+                        // Zod validation (max blocks, config fields)
+                        step4Schema.parse({ pipeline })
 
-                          // Intelligent validation (AC-3.6.9)
-                          const validationResult = validatePipelineLogic(
-                            pipeline,
-                            animationData.inputCollection
-                          )
+                        // Intelligent validation (AC-3.6.9)
+                        const validationResult = validatePipelineLogic(
+                          pipeline,
+                          animationData.inputCollection
+                        )
 
-                          if (validationResult.type === 'error') {
-                            toast.error(validationResult.message)
-                            return
-                          }
-
-                          if (validationResult.type === 'warning' || validationResult.type === 'info') {
-                            // Show warning/info and wait for user confirmation
-                            toast.warning(validationResult.message, {
-                              duration: 10000,
-                              action: {
-                                label: 'Continuer quand même',
-                                onClick: async () => {
-                                  await handleNextStep({ pipeline })
-                                },
-                              },
-                            })
-                            return
-                          }
-
-                          // Valid pipeline - proceed
-                          await handleNextStep({ pipeline })
-                        } catch (error: any) {
-                          if (error.errors) {
-                            toast.error(error.errors[0]?.message || 'Erreur de validation')
-                          } else {
-                            toast.error('Erreur de validation du pipeline')
-                          }
+                        if (validationResult.type === 'error') {
+                          toast.error(validationResult.message)
+                          return
                         }
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
-                    </Button>
-                  </div>
+
+                        if (validationResult.type === 'warning' || validationResult.type === 'info') {
+                          // Show warning/info and wait for user confirmation
+                          toast.warning(validationResult.message, {
+                            duration: 10000,
+                            action: {
+                              label: 'Continuer quand même',
+                              onClick: async () => {
+                                await handleNextStep({ pipeline })
+                              },
+                            },
+                          })
+                          return
+                        }
+
+                        // Valid pipeline - proceed
+                        await handleNextStep({ pipeline })
+                      } catch (error: any) {
+                        if (error.errors) {
+                          toast.error(error.errors[0]?.message || 'Erreur de validation')
+                        } else {
+                          toast.error('Erreur de validation du pipeline')
+                        }
+                      }
+                    }}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
 
@@ -236,37 +224,31 @@ export default function NewAnimationPage() {
                     }}
                   />
 
-                  <div className="flex justify-between pt-4 border-t">
-                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
-                      Précédent
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Get email config from store, merge with defaults to ensure all fields present
-                        const emailConfig = {
-                          ...DEFAULT_EMAIL_CONFIG,
-                          ...animationData.emailConfig,
-                        }
+                  <WizardNavigation
+                    onPrev={handlePrevStep}
+                    onNext={async () => {
+                      // Get email config from store, merge with defaults to ensure all fields present
+                      const emailConfig = {
+                        ...DEFAULT_EMAIL_CONFIG,
+                        ...animationData.emailConfig,
+                      }
 
-                        try {
-                          // Validate with Zod schema
-                          step5Schema.parse({ emailConfig })
+                      try {
+                        // Validate with Zod schema
+                        step5Schema.parse({ emailConfig })
 
-                          // Save and proceed
-                          await handleNextStep({ emailConfig })
-                        } catch (error: any) {
-                          if (error.errors) {
-                            toast.error(error.errors[0]?.message || 'Erreur de validation')
-                          } else {
-                            toast.error('Erreur de validation de la configuration email')
-                          }
+                        // Save and proceed
+                        await handleNextStep({ emailConfig })
+                      } catch (error: any) {
+                        if (error.errors) {
+                          toast.error(error.errors[0]?.message || 'Erreur de validation')
+                        } else {
+                          toast.error('Erreur de validation de la configuration email')
                         }
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
 
@@ -275,37 +257,31 @@ export default function NewAnimationPage() {
                 <div className="space-y-6">
                   <Step6PublicDisplay />
 
-                  <div className="flex justify-between pt-4 border-t">
-                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
-                      Précédent
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Get public display config from store, merge with defaults
-                        const publicDisplayConfig = {
-                          ...DEFAULT_PUBLIC_DISPLAY_CONFIG,
-                          ...animationData.publicDisplayConfig,
-                        }
+                  <WizardNavigation
+                    onPrev={handlePrevStep}
+                    onNext={async () => {
+                      // Get public display config from store, merge with defaults
+                      const publicDisplayConfig = {
+                        ...DEFAULT_PUBLIC_DISPLAY_CONFIG,
+                        ...animationData.publicDisplayConfig,
+                      }
 
-                        try {
-                          // Validate with Zod schema
-                          step6Schema.parse({ publicDisplayConfig })
+                      try {
+                        // Validate with Zod schema
+                        step6Schema.parse({ publicDisplayConfig })
 
-                          // Save and proceed
-                          await handleNextStep({ publicDisplayConfig })
-                        } catch (error: any) {
-                          if (error.errors) {
-                            toast.error(error.errors[0]?.message || 'Erreur de validation')
-                          } else {
-                            toast.error('Erreur de validation de la configuration écran public')
-                          }
+                        // Save and proceed
+                        await handleNextStep({ publicDisplayConfig })
+                      } catch (error: any) {
+                        if (error.errors) {
+                          toast.error(error.errors[0]?.message || 'Erreur de validation')
+                        } else {
+                          toast.error('Erreur de validation de la configuration écran public')
                         }
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
 
@@ -314,44 +290,38 @@ export default function NewAnimationPage() {
                 <div className="space-y-6">
                   <Step7Customization />
 
-                  <div className="flex justify-between pt-4 border-t">
-                    <Button onClick={handlePrevStep} variant="outline" disabled={isLoading}>
-                      Précédent
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Get customization from store, deep merge with defaults
-                        // Ensure textCard is properly merged (nested object)
-                        const storeCustomization = animationData.customization
-                        const customization = {
-                          ...DEFAULT_CUSTOMIZATION,
-                          ...(storeCustomization || {}),
-                          // Deep merge textCard
-                          textCard: {
-                            ...DEFAULT_TEXT_CARD,
-                            ...(storeCustomization?.textCard || {}),
-                          },
-                        }
+                  <WizardNavigation
+                    onPrev={handlePrevStep}
+                    onNext={async () => {
+                      // Get customization from store, deep merge with defaults
+                      // Ensure textCard is properly merged (nested object)
+                      const storeCustomization = animationData.customization
+                      const customization = {
+                        ...DEFAULT_CUSTOMIZATION,
+                        ...(storeCustomization || {}),
+                        // Deep merge textCard
+                        textCard: {
+                          ...DEFAULT_TEXT_CARD,
+                          ...(storeCustomization?.textCard || {}),
+                        },
+                      }
 
-                        try {
-                          // Validate with Zod schema
-                          step7Schema.parse({ customization })
+                      try {
+                        // Validate with Zod schema
+                        step7Schema.parse({ customization })
 
-                          // Save and proceed
-                          await handleNextStep({ customization })
-                        } catch (error: any) {
-                          if (error.errors) {
-                            toast.error(error.errors[0]?.message || 'Erreur de validation')
-                          } else {
-                            toast.error('Erreur de validation de la personnalisation')
-                          }
+                        // Save and proceed
+                        await handleNextStep({ customization })
+                      } catch (error: any) {
+                        if (error.errors) {
+                          toast.error(error.errors[0]?.message || 'Erreur de validation')
+                        } else {
+                          toast.error('Erreur de validation de la personnalisation')
                         }
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sauvegarde...' : 'Suivant'}
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
 
