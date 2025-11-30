@@ -16,6 +16,7 @@ interface Step1GeneralInfoProps {
   onNext: (data: Step1Data) => void | Promise<void>
   isLoading?: boolean
   error?: string | null
+  canEditSlug?: boolean // If false, slug field is disabled (for published animations)
 }
 
 /**
@@ -34,7 +35,13 @@ function generateSlug(name: string): string {
  * Step 1: General Information
  * Name, Description, Slug with auto-generation
  */
-export function Step1GeneralInfo({ initialData, onNext, isLoading = false, error = null }: Step1GeneralInfoProps) {
+export function Step1GeneralInfo({
+  initialData,
+  onNext,
+  isLoading = false,
+  error = null,
+  canEditSlug = true, // Default to true for create mode
+}: Step1GeneralInfoProps) {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
 
   const {
@@ -119,7 +126,7 @@ export function Step1GeneralInfo({ initialData, onNext, isLoading = false, error
           id="slug"
           {...register('slug')}
           placeholder="mon-animation"
-          disabled={isLoading}
+          disabled={isLoading || !canEditSlug}
           className={errors.slug ? 'border-red-500' : ''}
           onChange={(e) => {
             register('slug').onChange(e)
@@ -128,6 +135,7 @@ export function Step1GeneralInfo({ initialData, onNext, isLoading = false, error
         />
         <p className="text-xs text-gray-500">
           URL : /a/{slug || 'votre-slug'}
+          {!canEditSlug && <span className="ml-2 text-orange-600">⚠️ Slug non modifiable (animation publiée)</span>}
         </p>
         {errors.slug && (
           <p className="text-sm text-red-500">{errors.slug.message}</p>
