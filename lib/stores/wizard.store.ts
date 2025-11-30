@@ -107,45 +107,13 @@ export interface Customization {
   thankYouMessage: string // max 100 chars, default provided
 }
 
-// Default loading messages for Step 7
-export const DEFAULT_LOADING_MESSAGES = [
-  '🎨 L\'IA travaille sur ton image...',
-  '✨ Génération en cours...',
-  '🚀 Presque terminé...',
-  '⏳ Encore quelques secondes...'
-]
-
-// Default public display config for Step 6
-export const DEFAULT_PUBLIC_DISPLAY_CONFIG: PublicDisplayConfig = {
-  enabled: true,
-  layout: 'masonry',
-  columns: 3,
-  autoScroll: true,
-  autoScrollSpeed: 'medium',
-  showParticipantName: true,
-  refreshInterval: 10
-}
-
-// Default text card config for Step 7
-export const DEFAULT_TEXT_CARD: TextCard = {
-  enabled: true,
-  backgroundColor: '#FFFFFF',
-  opacity: 90,
-  borderRadius: 12,
-  padding: 16,
-}
-
-// Default customization config for Step 7
-export const DEFAULT_CUSTOMIZATION: Customization = {
-  primaryColor: '#000000',
-  secondaryColor: '#71717a',
-  backgroundColorOpacity: 50,
-  textCard: DEFAULT_TEXT_CARD,
-  theme: 'auto',
-  submissionMessage: 'Merci ! Votre résultat arrive...',
-  loadingMessages: DEFAULT_LOADING_MESSAGES,
-  thankYouMessage: 'Merci d\'avoir participé !'
-}
+// Re-export defaults from centralized constants
+export {
+  DEFAULT_LOADING_MESSAGES,
+  DEFAULT_PUBLIC_DISPLAY_CONFIG,
+  DEFAULT_TEXT_CARD,
+  DEFAULT_CUSTOMIZATION,
+} from '@/lib/constants/wizard-defaults'
 
 // Step 8: Animation Summary type for recap display
 export interface AnimationSummary {
@@ -386,14 +354,8 @@ export interface EmailConfigData {
   senderEmail: string
 }
 
-/**
- * Default email config values
- */
-export const DEFAULT_EMAIL_CONFIG: EmailConfigData = {
-  enabled: false,
-  senderName: 'AppsByMCI',
-  senderEmail: 'noreply@appsbymci.com',
-}
+// Re-export email defaults from centralized constants
+export { DEFAULT_EMAIL_CONFIG } from '@/lib/constants/wizard-defaults'
 
 /**
  * Helper: Get available variables for prompt template

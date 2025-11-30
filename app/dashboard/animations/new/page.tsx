@@ -18,21 +18,12 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { RotateCcw } from 'lucide-react'
 import { step3Schema, step4Schema, step5Schema, step6Schema, step7Schema } from '@/lib/schemas/animation.schema'
-import { DEFAULT_EMAIL_CONFIG, DEFAULT_PUBLIC_DISPLAY_CONFIG, DEFAULT_CUSTOMIZATION, DEFAULT_TEXT_CARD } from '@/lib/stores/wizard.store'
+import { DEFAULT_EMAIL_CONFIG, DEFAULT_PUBLIC_DISPLAY_CONFIG, DEFAULT_CUSTOMIZATION, DEFAULT_TEXT_CARD, WIZARD_STEP_TITLES } from '@/lib/constants/wizard-defaults'
 import { validatePipelineLogic } from '@/lib/utils/pipeline-validator'
 import { useWizardNavigation } from '@/lib/hooks/useWizardNavigation'
 
-// Step titles for wizard
-const STEP_TITLES = [
-  'Informations générales',
-  'Configuration d\'accès',
-  'Collecte des données',
-  'Pipeline de traitement',
-  'Configuration email',
-  'Écran public',
-  'Personnalisation',
-  'Récapitulatif & Publication',
-]
+// Step titles imported from centralized constants
+const STEP_TITLES = WIZARD_STEP_TITLES
 
 export default function NewAnimationPage() {
   const { user, getAccessToken } = useAuthStore()

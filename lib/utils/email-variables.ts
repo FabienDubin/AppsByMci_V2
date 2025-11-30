@@ -195,18 +195,8 @@ export const getVariablesTooltipContent = (
   return lines.join('\n')
 }
 
-/**
- * Default email template
- */
-export const DEFAULT_EMAIL_TEMPLATE = `<p>Bonjour {nom},</p>
-<p>Ton image générée par IA est prête !</p>
-<p><img src="{imageUrl}" alt="Ton résultat" style="max-width: 600px; border-radius: 8px;" /></p>
-<p>Merci d'avoir participé à notre événement.</p>`
-
-/**
- * Default email subject
- */
-export const DEFAULT_EMAIL_SUBJECT = 'Ton résultat {nom} est prêt !'
+// Re-export email template defaults from centralized constants
+export { DEFAULT_EMAIL_TEMPLATE, DEFAULT_EMAIL_SUBJECT } from '@/lib/constants/wizard-defaults'
 
 /**
  * Escape special regex characters in a string
