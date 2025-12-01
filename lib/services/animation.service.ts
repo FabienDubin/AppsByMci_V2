@@ -73,11 +73,7 @@ export class AnimationService {
       slug: data.slug,
       description: data.description || '',
       status: 'draft',
-      accessValidation: {
-        type: 'open',
-      },
       pipeline: [],
-      questions: [],
     })
 
     logger.info(
@@ -212,9 +208,7 @@ export class AnimationService {
       ...data,
       userId: new mongoose.Types.ObjectId(userId),
       status,
-      accessValidation: data.accessValidation || { type: 'open' },
       pipeline: data.pipeline || [],
-      questions: data.questions || [],
     }
 
     // For published animations, set publishedAt and generate QR code
@@ -383,11 +377,9 @@ export class AnimationService {
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
       // Explicitly include wizard step fields (safe, no spread)
-      accessValidation: obj.accessValidation,
       accessConfig: obj.accessConfig, // Step 2
       baseFields: obj.baseFields, // Step 2
       inputCollection: obj.inputCollection, // Step 3
-      questions: obj.questions,
       pipeline: obj.pipeline,
       aiModel: obj.aiModel,
       emailConfig: obj.emailConfig,

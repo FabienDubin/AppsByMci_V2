@@ -67,9 +67,7 @@ describe('AnimationService', () => {
         userId: new mongoose.Types.ObjectId(userId),
         ...draftData,
         status: 'draft',
-        accessValidation: { type: 'open' },
         pipeline: [],
-        questions: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -87,9 +85,7 @@ describe('AnimationService', () => {
         slug: draftData.slug,
         description: draftData.description,
         status: 'draft',
-        accessValidation: { type: 'open' },
         pipeline: [],
-        questions: [],
       })
     })
 

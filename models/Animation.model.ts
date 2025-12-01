@@ -7,19 +7,6 @@ import mongoose, { Schema, Document, Model } from 'mongoose'
 export type AnimationStatus = 'draft' | 'published' | 'archived'
 
 /**
- * Access validation types
- */
-export type AccessValidationType = 'open' | 'code' | 'email'
-
-/**
- * Access validation configuration (Legacy - deprecated in favor of accessConfig)
- */
-export interface IAccessValidation {
-  type: AccessValidationType
-  value?: string // Code or email domain
-}
-
-/**
  * Access config types for Step 2
  */
 export type AccessConfigType = 'none' | 'code' | 'email-domain'
@@ -140,23 +127,6 @@ export interface IPipelineBlock {
 }
 
 /**
- * Question types for Step 3
- */
-export type QuestionType = 'text' | 'email' | 'number' | 'choice' | 'slider' | 'selfie'
-
-/**
- * Question configuration
- */
-export interface IQuestion {
-  id: string
-  type: QuestionType
-  label: string
-  required: boolean
-  options?: string[] // For 'choice' type
-  validation?: Record<string, any>
-}
-
-/**
  * AI Model configuration (Step 4)
  */
 export interface IAIModel {
@@ -259,12 +229,10 @@ export interface IAnimation extends Document {
   slug: string
   description: string
   status: AnimationStatus
-  accessValidation: IAccessValidation // Legacy - deprecated
   accessConfig?: IAccessConfig // Step 2 - New access configuration
   baseFields?: IBaseFields // Step 2 - Base field configuration
   inputCollection?: IInputCollection // Step 3 - Advanced input collection
   pipeline: IPipelineBlock[]
-  questions: IQuestion[]
   aiModel?: IAIModel
   emailConfig?: IEmailConfig
   displayConfig?: IDisplayConfig // Legacy - deprecated
@@ -316,21 +284,6 @@ const AnimationSchema = new Schema<IAnimation>(
       },
       default: 'draft',
       required: true
-    },
-    accessValidation: {
-      type: {
-        type: String,
-        enum: {
-          values: ['open', 'code', 'email'],
-          message: 'Access validation type must be open, code, or email'
-        },
-        default: 'open',
-        required: true
-      },
-      value: {
-        type: String,
-        default: undefined
-      }
     },
     accessConfig: {
       type: {
@@ -595,38 +548,6 @@ const AnimationSchema = new Schema<IAnimation>(
         },
         message: 'Pipeline must have max 4 AI blocks and max 20 blocks total'
       }
-    },
-    questions: {
-      type: [
-        {
-          id: {
-            type: String,
-            required: true
-          },
-          type: {
-            type: String,
-            enum: ['text', 'email', 'number', 'choice', 'slider', 'selfie'],
-            required: true
-          },
-          label: {
-            type: String,
-            required: true
-          },
-          required: {
-            type: Boolean,
-            default: false
-          },
-          options: {
-            type: [String],
-            default: undefined
-          },
-          validation: {
-            type: Schema.Types.Mixed,
-            default: undefined
-          }
-        }
-      ],
-      default: []
     },
     aiModel: {
       modelId: {

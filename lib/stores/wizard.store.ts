@@ -172,10 +172,6 @@ export interface AnimationData {
   slug?: string
   description?: string
   status?: 'draft' | 'published' | 'archived'
-  accessValidation?: {
-    type: 'open' | 'code' | 'email'
-    value?: string
-  }
   // Step 2: Access Config + Base Fields
   accessConfig?: {
     type: 'none' | 'code' | 'email-domain'
@@ -189,7 +185,6 @@ export interface AnimationData {
   }
   // Step 3: Input Collection (advanced inputs)
   inputCollection?: InputCollection
-  questions?: any[]
   // Step 4: Pipeline
   pipeline?: PipelineBlock[]
   aiModel?: {

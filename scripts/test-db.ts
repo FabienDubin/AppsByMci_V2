@@ -77,7 +77,6 @@ async function testDatabase() {
       slug: 'animation-test',
       description: 'Animation de test',
       status: 'draft',
-      accessValidation: { type: 'open' },
       pipeline: []
     })
     console.log('   ✅ Animation créée:', testAnimation._id)

@@ -46,12 +46,6 @@ export const updateAnimationSchema = z.object({
     .optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   // Additional fields for wizard steps 2-8 (added progressively)
-  accessValidation: z
-    .object({
-      type: z.enum(['open', 'code', 'email']),
-      value: z.string().optional(),
-    })
-    .optional(),
   accessConfig: z
     .object({
       type: z.enum(['none', 'code', 'email-domain']),
@@ -70,18 +64,6 @@ export const updateAnimationSchema = z.object({
     .object({
       elements: z.array(inputElementSchema),
     })
-    .optional(),
-  questions: z
-    .array(
-      z.object({
-        id: z.string(),
-        type: z.enum(['text', 'email', 'number', 'choice', 'slider', 'selfie']),
-        label: z.string(),
-        required: z.boolean(),
-        options: z.array(z.string()).optional(),
-        validation: z.record(z.any()).optional(),
-      })
-    )
     .optional(),
   pipeline: z.array(pipelineBlockSchema).optional(),
   aiModel: z

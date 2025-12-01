@@ -16,12 +16,6 @@ export interface User {
 
 // Animation types
 export type AnimationStatus = 'draft' | 'published' | 'archived'
-export type AccessValidationType = 'open' | 'code' | 'email'
-
-export interface AccessValidation {
-  type: AccessValidationType
-  value?: string // Code or email domain
-}
 
 export interface PipelineBlock {
   blockType: string
@@ -35,7 +29,6 @@ export interface Animation {
   slug: string
   description: string
   status: AnimationStatus
-  accessValidation: AccessValidation
   pipeline: PipelineBlock[]
   createdAt: Date
   updatedAt: Date
