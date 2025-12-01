@@ -27,7 +27,15 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 // Sortable wrapper component
-function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
+function SortableItem({
+  id,
+  children,
+}: {
+  id: string
+  children:
+    | React.ReactNode
+    | ((props: { dragHandleProps: Record<string, any>; isDragging: boolean }) => React.ReactNode)
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   })

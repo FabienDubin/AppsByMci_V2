@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:pretty": "next dev 2>&1 | pino-pretty",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && bash scripts/copy-standalone-assets.sh",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "test": "jest",

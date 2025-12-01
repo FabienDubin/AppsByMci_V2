@@ -1,5 +1,5 @@
 import { PipelineBlock, InputCollection } from '@/lib/stores/wizard.store'
-import { AI_MODELS, getModelById } from '@/lib/ai-models'
+import { getModelById } from '@/lib/ai-models'
 import type { ImageUsageMode } from '@/lib/types'
 
 /**

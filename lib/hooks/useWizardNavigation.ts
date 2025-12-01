@@ -7,7 +7,7 @@ interface UseWizardNavigationOptions {
   getAccessToken: () => string | null
 }
 
-export function useWizardNavigation({ mode = 'create', getAccessToken }: UseWizardNavigationOptions) {
+export function useWizardNavigation({ mode: _mode = 'create', getAccessToken }: UseWizardNavigationOptions) {
   const {
     animationId,
     setAnimationId,

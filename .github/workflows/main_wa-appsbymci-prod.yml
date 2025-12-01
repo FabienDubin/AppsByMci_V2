@@ -22,18 +22,25 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
+          cache: 'npm'
 
-      - name: npm install, build, and test
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Upload artifact for deployment job
+      - name: Run tests
+        run: npm test
+
+      - name: Build Next.js app (standalone output)
+        run: npm run build
+
+      - name: Upload standalone artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: |
+            .next/standalone
+            package.json
+          include-hidden-files: true
 
   deploy:
     runs-on: ubuntu-latest

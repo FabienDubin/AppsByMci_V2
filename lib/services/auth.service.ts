@@ -185,10 +185,7 @@ export class AuthService {
    * Idempotent operation - succeeds even if session doesn't exist
    */
   async logout(refreshToken: string): Promise<void> {
-    // Hash the refresh token to match against stored hashes
-    const refreshTokenHash = await hashPassword(refreshToken)
-
-    // Find and delete the session matching the refresh token hash
+    // Find and delete the session matching the refresh token
     // Note: Since we hash with bcrypt (random salt), we need to compare manually
     // This is the same pattern as in refreshAccessToken
     const sessions = await Session.find()

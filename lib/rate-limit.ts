@@ -23,11 +23,10 @@ const animationCreationStore = new Map<string, RateLimitEntry>()
 
 // Periodic cleanup to prevent memory leaks
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 min
-let cleanupInterval: ReturnType<typeof setInterval> | null = null
 
 // Skip cleanup interval in test environment
 if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  cleanupInterval = setInterval(() => {
+  setInterval(() => {
     const now = Date.now()
 
     // Cleanup login rate limits

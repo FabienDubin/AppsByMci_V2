@@ -102,7 +102,6 @@ export function AddElementModal({
   hasSelfie,
 }: AddElementModalProps) {
   const [mode, setMode] = useState<ModalMode>('select-type')
-  const [selectedType, setSelectedType] = useState<InputElementType | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
 
   // Choice form
@@ -126,7 +125,6 @@ export function AddElementModal({
   // Initialize for editing
   useEffect(() => {
     if (existingElement && isOpen) {
-      setSelectedType(existingElement.type)
       if (existingElement.type === 'choice') {
         setMode('edit-choice')
         choiceForm.reset({
@@ -157,12 +155,10 @@ export function AddElementModal({
       }
     } else if (isOpen) {
       setMode('select-type')
-      setSelectedType(null)
     }
   }, [existingElement, isOpen, choiceForm, sliderForm, freeTextForm])
 
   const handleTypeSelect = (type: InputElementType) => {
-    setSelectedType(type)
     if (type === 'selfie') {
       setMode('edit-selfie')
     } else if (type === 'choice') {
@@ -206,7 +202,6 @@ export function AddElementModal({
     setValidationError(null)
     if (mode !== 'select-type') {
       setMode('select-type')
-      setSelectedType(null)
     } else {
       onClose()
     }

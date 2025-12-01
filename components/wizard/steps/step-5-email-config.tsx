@@ -203,9 +203,10 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
 
   // Handle enabling email collection from dialog
   const handleEnableEmailCollection = async () => {
-    // Build new baseFields with email enabled
+    // Build new baseFields with email enabled and ensure all required fields are present
     const newBaseFields = {
-      ...animationData.baseFields,
+      name: animationData.baseFields?.name || { enabled: false, required: false },
+      firstName: animationData.baseFields?.firstName || { enabled: false, required: false },
       email: {
         ...animationData.baseFields?.email,
         enabled: true,

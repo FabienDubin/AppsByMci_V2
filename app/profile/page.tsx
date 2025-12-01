@@ -127,7 +127,11 @@ export default function ProfilePage() {
   const onSubmitProfile = async (data: ProfileFormData) => {
     setIsSubmittingProfile(true)
     try {
-      const result = await api.put('/api/users/me', { name: data.name })
+      // Type the API response with UserResponse interface
+      const result = await api.put<{ id: string; email: string; name?: string; role: string; createdAt: Date }>(
+        '/api/users/me',
+        { name: data.name }
+      )
 
       if (result.success && result.data) {
         updateUser({ name: result.data.name })
