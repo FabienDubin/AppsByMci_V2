@@ -189,7 +189,7 @@ describe('replaceVariablesWithPlaceholders', () => {
   it('should replace {imageUrl} with image placeholder', () => {
     const template = 'Your image: {imageUrl}'
     const result = replaceVariablesWithPlaceholders(template, validVars)
-    expect(result).toContain('Image générée')
+    expect(result).toContain('[IMAGE_URL]')
     expect(result).not.toContain('{imageUrl}')
   })
 
