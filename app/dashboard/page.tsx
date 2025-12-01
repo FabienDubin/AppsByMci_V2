@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuthStore } from '@/lib/stores/auth.store'
 import { useWizardStore } from '@/lib/stores/wizard.store'
 import { LogoutButton } from '@/components/auth/logout-button'
@@ -21,10 +21,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRouter } from 'next/navigation'
-import { Plus, MoreHorizontal, Pencil, Eye, Copy, Archive, Loader2 } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Eye, Copy, Archive, Trash2, RotateCcw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimationResponse } from '@/lib/services/animation.service'
+import { DuplicateAnimationModal } from '@/components/modals/duplicate-animation-modal'
+import { ArchiveAnimationModal } from '@/components/modals/archive-animation-modal'
+import { RestoreAnimationModal } from '@/components/modals/restore-animation-modal'
+import { DeleteAnimationModal } from '@/components/modals/delete-animation-modal'
+
+type FilterType = 'active' | 'archived' | 'all'
+
+interface ModalState {
+  duplicate: { isOpen: boolean; animation: AnimationResponse | null }
+  archive: { isOpen: boolean; animation: AnimationResponse | null }
+  restore: { isOpen: boolean; animation: AnimationResponse | null }
+  delete: { isOpen: boolean; animation: AnimationResponse | null }
+}
 
 export default function DashboardPage() {
   const { user, getAccessToken } = useAuthStore()
@@ -34,42 +48,53 @@ export default function DashboardPage() {
   const [animations, setAnimations] = useState<AnimationResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<FilterType>('active')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [modals, setModals] = useState<ModalState>({
+    duplicate: { isOpen: false, animation: null },
+    archive: { isOpen: false, animation: null },
+    restore: { isOpen: false, animation: null },
+    delete: { isOpen: false, animation: null },
+  })
 
-  // Fetch animations on mount
-  useEffect(() => {
-    const fetchAnimations = async () => {
-      try {
-        const token = getAccessToken()
-        if (!token) {
-          setError('Non authentifié')
-          return
-        }
-
-        const response = await fetch('/api/animations', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        const result = await response.json()
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error?.message || 'Erreur lors du chargement')
-        }
-
-        setAnimations(result.data)
-      } catch (err: any) {
-        setError(err.message)
-        toast.error('Erreur lors du chargement des animations')
-      } finally {
-        setLoading(false)
+  // Fetch animations with filter
+  const fetchAnimations = useCallback(async (currentFilter: FilterType) => {
+    try {
+      const token = getAccessToken()
+      if (!token) {
+        setError('Non authentifié')
+        return
       }
-    }
 
-    if (user) {
-      fetchAnimations()
+      const response = await fetch(`/api/animations?filter=${currentFilter}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors du chargement')
+      }
+
+      setAnimations(result.data)
+      setError(null)
+    } catch (err: any) {
+      setError(err.message)
+      toast.error('Erreur lors du chargement des animations')
+    } finally {
+      setLoading(false)
     }
-  }, [user, getAccessToken])
+  }, [getAccessToken])
+
+  // Fetch animations on mount and filter change
+  useEffect(() => {
+    if (user) {
+      setLoading(true)
+      fetchAnimations(filter)
+    }
+  }, [user, filter, fetchAnimations])
 
   // AuthProvider ensures we're authenticated
   if (!user) {
@@ -91,20 +116,153 @@ export default function DashboardPage() {
     router.push(`/dashboard/animations/${id}/edit`)
   }
 
-  // Handle viewing an animation (future feature)
+  // Handle viewing an animation
   const handleViewAnimation = (slug: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     window.open(`${baseUrl}/a/${slug}`, '_blank')
   }
 
-  // Handle duplicating an animation (future feature - Story 3.11)
-  const handleDuplicateAnimation = (_id: string) => {
-    toast.info('Fonctionnalité à venir dans Story 3.11')
+  // Modal helpers
+  const openModal = (type: keyof ModalState, animation: AnimationResponse) => {
+    setModals((prev) => ({
+      ...prev,
+      [type]: { isOpen: true, animation },
+    }))
   }
 
-  // Handle archiving an animation (future feature - Story 3.11)
-  const handleArchiveAnimation = (_id: string) => {
-    toast.info('Fonctionnalité à venir dans Story 3.11')
+  const closeModal = (type: keyof ModalState) => {
+    setModals((prev) => ({
+      ...prev,
+      [type]: { isOpen: false, animation: null },
+    }))
+  }
+
+  // Handle duplicating an animation
+  const handleDuplicate = async () => {
+    const animation = modals.duplicate.animation
+    if (!animation) return
+
+    setActionLoading(true)
+    try {
+      const token = getAccessToken()
+      const response = await fetch(`/api/animations/${animation.id}/duplicate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors de la duplication')
+      }
+
+      toast.success('Animation dupliquée avec succès')
+      closeModal('duplicate')
+      // Refresh list to show the new duplicate
+      fetchAnimations(filter)
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la duplication')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle archiving an animation
+  const handleArchive = async () => {
+    const animation = modals.archive.animation
+    if (!animation) return
+
+    setActionLoading(true)
+    try {
+      const token = getAccessToken()
+      const response = await fetch(`/api/animations/${animation.id}/archive`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors de l\'archivage')
+      }
+
+      toast.success('Animation archivée')
+      closeModal('archive')
+      // Refresh list - animation will disappear from 'active' filter
+      fetchAnimations(filter)
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de l\'archivage')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle restoring an animation
+  const handleRestore = async () => {
+    const animation = modals.restore.animation
+    if (!animation) return
+
+    setActionLoading(true)
+    try {
+      const token = getAccessToken()
+      const response = await fetch(`/api/animations/${animation.id}/restore`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors de la restauration')
+      }
+
+      toast.success('Animation restaurée')
+      closeModal('restore')
+      // Refresh list
+      fetchAnimations(filter)
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la restauration')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle deleting an animation
+  const handleDelete = async () => {
+    const animation = modals.delete.animation
+    if (!animation) return
+
+    setActionLoading(true)
+    try {
+      const token = getAccessToken()
+      const response = await fetch(`/api/animations/${animation.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erreur lors de la suppression')
+      }
+
+      toast.success('Animation supprimée définitivement')
+      closeModal('delete')
+      // Refresh list
+      fetchAnimations(filter)
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la suppression')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   // Format date for display
@@ -161,6 +319,15 @@ export default function DashboardPage() {
                 Nouvelle animation
               </Button>
             </div>
+
+            {/* Filter tabs */}
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as FilterType)} className="mb-6">
+              <TabsList>
+                <TabsTrigger value="active">Actives</TabsTrigger>
+                <TabsTrigger value="archived">Archivées</TabsTrigger>
+                <TabsTrigger value="all">Toutes</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -220,25 +387,44 @@ export default function DashboardPage() {
                                 Voir
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                              onClick={() => handleEditAnimation(animation.id)}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Éditer
-                            </DropdownMenuItem>
+                            {animation.status !== 'archived' && (
+                              <DropdownMenuItem
+                                onClick={() => handleEditAnimation(animation.id)}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Éditer
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleDuplicateAnimation(animation.id)}
+                              onClick={() => openModal('duplicate', animation)}
                             >
                               <Copy className="h-4 w-4 mr-2" />
                               Dupliquer
                             </DropdownMenuItem>
+                            {animation.status === 'archived' ? (
+                              <DropdownMenuItem
+                                onClick={() => openModal('restore', animation)}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restaurer
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => openModal('archive', animation)}
+                                className="text-amber-600"
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archiver
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleArchiveAnimation(animation.id)}
+                              onClick={() => openModal('delete', animation)}
                               className="text-destructive"
                             >
-                              <Archive className="h-4 w-4 mr-2" />
-                              Archiver
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Supprimer
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -251,6 +437,39 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <DuplicateAnimationModal
+        isOpen={modals.duplicate.isOpen}
+        onClose={() => closeModal('duplicate')}
+        onConfirm={handleDuplicate}
+        animationName={modals.duplicate.animation?.name || ''}
+        isLoading={actionLoading}
+      />
+
+      <ArchiveAnimationModal
+        isOpen={modals.archive.isOpen}
+        onClose={() => closeModal('archive')}
+        onConfirm={handleArchive}
+        animationName={modals.archive.animation?.name || ''}
+        isLoading={actionLoading}
+      />
+
+      <RestoreAnimationModal
+        isOpen={modals.restore.isOpen}
+        onClose={() => closeModal('restore')}
+        onConfirm={handleRestore}
+        animationName={modals.restore.animation?.name || ''}
+        isLoading={actionLoading}
+      />
+
+      <DeleteAnimationModal
+        isOpen={modals.delete.isOpen}
+        onClose={() => closeModal('delete')}
+        onConfirm={handleDelete}
+        animationName={modals.delete.animation?.name || ''}
+        isLoading={actionLoading}
+      />
     </div>
   )
 }

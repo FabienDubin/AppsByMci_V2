@@ -1,7 +1,8 @@
 import Animation, { IAnimation } from '@/models/Animation.model'
+import Generation from '@/models/Generation.model'
 import { logger } from '@/lib/logger'
 import mongoose from 'mongoose'
-import { generateAndUploadQRCode, buildPublicUrl } from '@/lib/services/qrcode.service'
+import { generateAndUploadQRCode, buildPublicUrl, deleteQRCode } from '@/lib/services/qrcode.service'
 import type { UpdateAnimation } from '@/lib/schemas/animation.schema'
 
 // Animation error codes
@@ -346,20 +347,167 @@ export class AnimationService {
   /**
    * List all animations for a user
    * @param userId - The user ID to list animations for
+   * @param filter - Optional filter: 'active' (draft+published), 'archived', or 'all'
    * @returns Array of animations
    */
-  async listAnimations(userId: string): Promise<IAnimation[]> {
+  async listAnimations(userId: string, filter: 'active' | 'archived' | 'all' = 'active'): Promise<IAnimation[]> {
+    let statusFilter: any = {}
+
+    if (filter === 'active') {
+      statusFilter = { status: { $in: ['draft', 'published'] } }
+    } else if (filter === 'archived') {
+      statusFilter = { status: 'archived' }
+    }
+    // 'all' = no status filter
+
     const animations = await Animation.find({
       userId: new mongoose.Types.ObjectId(userId),
-      status: { $ne: 'archived' }, // Exclude archived animations
+      ...statusFilter,
     }).sort({ createdAt: -1 })
 
     logger.info(
-      { userId, count: animations.length },
+      { userId, filter, count: animations.length },
       'Listed animations for user'
     )
 
     return animations
+  }
+
+  /**
+   * Duplicate an existing animation
+   * Creates a copy with new name, slug, and draft status
+   * @param animationId - The animation ID to duplicate
+   * @param userId - The user ID making the request
+   * @returns The newly created animation copy
+   */
+  async duplicateAnimation(animationId: string, userId: string): Promise<IAnimation> {
+    // Get original animation (validates ownership)
+    const original = await this.getAnimationById(animationId, userId)
+
+    // Generate new name and slug
+    const newName = `${original.name} (copie)`
+    const timestamp = Date.now()
+    const newSlug = `${original.slug}-copy-${timestamp}`
+
+    // Create copy object - exclude system fields and regeneratable fields
+    const copyData: Partial<IAnimation> = {
+      userId: new mongoose.Types.ObjectId(userId),
+      name: newName,
+      slug: newSlug,
+      description: original.description,
+      status: 'draft', // Always create as draft
+      accessConfig: original.accessConfig,
+      baseFields: original.baseFields,
+      inputCollection: original.inputCollection,
+      pipeline: original.pipeline,
+      aiModel: original.aiModel,
+      emailConfig: original.emailConfig,
+      publicDisplayConfig: original.publicDisplayConfig,
+      customization: original.customization,
+      // Explicitly NOT copying: qrCodeUrl, publishedAt, archivedAt
+    }
+
+    // Create the new animation
+    const duplicate = await Animation.create(copyData)
+
+    logger.info(
+      {
+        originalId: animationId,
+        duplicateId: duplicate._id.toString(),
+        userId,
+        newSlug,
+      },
+      'Animation duplicated successfully'
+    )
+
+    return duplicate
+  }
+
+  /**
+   * Archive an animation
+   * Sets status to 'archived' and records archive timestamp
+   * @param animationId - The animation ID to archive
+   * @param userId - The user ID making the request
+   * @returns The archived animation
+   */
+  async archiveAnimation(animationId: string, userId: string): Promise<IAnimation> {
+    // Get animation (validates ownership)
+    const animation = await this.getAnimationById(animationId, userId)
+
+    // Update status and archive timestamp
+    animation.status = 'archived'
+    animation.archivedAt = new Date()
+
+    await animation.save()
+
+    logger.info(
+      { animationId, userId },
+      'Animation archived successfully'
+    )
+
+    return animation
+  }
+
+  /**
+   * Restore an archived animation
+   * Restores to previous status (published if was published, otherwise draft)
+   * @param animationId - The animation ID to restore
+   * @param userId - The user ID making the request
+   * @returns The restored animation
+   */
+  async restoreAnimation(animationId: string, userId: string): Promise<IAnimation> {
+    // Get animation (validates ownership)
+    const animation = await this.getAnimationById(animationId, userId)
+
+    // Restore status based on whether it was previously published
+    if (animation.publishedAt) {
+      animation.status = 'published'
+    } else {
+      animation.status = 'draft'
+    }
+
+    // Clear archive timestamp
+    animation.archivedAt = undefined
+
+    await animation.save()
+
+    logger.info(
+      { animationId, userId, restoredStatus: animation.status },
+      'Animation restored successfully'
+    )
+
+    return animation
+  }
+
+  /**
+   * Delete an animation permanently
+   * Cascade deletes: all generations, QR code from blob storage
+   * @param animationId - The animation ID to delete
+   * @param userId - The user ID making the request
+   */
+  async deleteAnimation(animationId: string, userId: string): Promise<void> {
+    // Get animation (validates ownership)
+    const animation = await this.getAnimationById(animationId, userId)
+
+    // 1. Delete all generations associated with this animation
+    const deleteResult = await Generation.deleteMany({ animationId: animation._id })
+    logger.info(
+      { animationId, deletedGenerations: deleteResult.deletedCount },
+      'Deleted associated generations'
+    )
+
+    // 2. Delete QR code from Azure Blob Storage if exists
+    if (animation.qrCodeUrl) {
+      await deleteQRCode(animation.qrCodeUrl)
+    }
+
+    // 3. Delete the animation document
+    await Animation.findByIdAndDelete(animationId)
+
+    logger.info(
+      { animationId, userId, slug: animation.slug },
+      'Animation deleted permanently'
+    )
   }
 
   /**
@@ -387,6 +535,7 @@ export class AnimationService {
       customization: obj.customization, // Step 7
       qrCodeUrl: obj.qrCodeUrl,
       publishedAt: obj.publishedAt,
+      archivedAt: obj.archivedAt, // Story 3.11
     }
   }
 }

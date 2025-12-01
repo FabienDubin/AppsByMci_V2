@@ -175,3 +175,27 @@ export function buildPublicUrl(slug: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'
   return `${baseUrl}/a/${slug}`
 }
+
+/**
+ * Delete a QR code from Azure Blob Storage
+ *
+ * @param qrCodeUrl - The full URL of the QR code to delete
+ */
+export async function deleteQRCode(qrCodeUrl: string): Promise<void> {
+  try {
+    // Extract blob name from URL
+    const urlObj = new URL(qrCodeUrl)
+    const pathParts = urlObj.pathname.split('/')
+    // Path format: /qrcodes/blobName.png
+    if (pathParts[1] === CONTAINERS.QRCODES) {
+      const blobName = pathParts.slice(2).join('/')
+      await blobStorageService.deleteFile(CONTAINERS.QRCODES, blobName)
+      logger.info({ qrCodeUrl, blobName }, 'QR code deleted successfully')
+    } else {
+      logger.warn({ qrCodeUrl }, 'QR code URL does not match expected container')
+    }
+  } catch (error: any) {
+    logger.error({ qrCodeUrl, error: error.message }, 'Failed to delete QR code')
+    // Don't throw - QR code deletion should not block animation deletion
+  }
+}

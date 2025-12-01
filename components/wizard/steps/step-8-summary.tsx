@@ -100,24 +100,27 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
               label="Description"
               value={summary.generalInfo.description || <span className="text-muted-foreground">Aucune description</span>}
             />
-            <div>
-              <dt className="text-sm font-medium text-muted-foreground">URL publique</dt>
-              <dd className="mt-0.5 flex items-center gap-2">
-                <code className="text-xs bg-muted px-2 py-1 rounded">
-                  {process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/{summary.generalInfo.slug || '...'}
-                </code>
-                {summary.generalInfo.slug && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={copySlugUrl}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                )}
-              </dd>
-            </div>
+            {/* Only show URL in create mode - edit mode has dedicated section at top */}
+            {mode === 'create' && (
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">URL publique</dt>
+                <dd className="mt-0.5 flex items-center gap-2">
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/{summary.generalInfo.slug || '...'}
+                  </code>
+                  {summary.generalInfo.slug && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={copySlugUrl}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         </SummaryCard>
 

@@ -12,6 +12,7 @@ interface UseAnimationEditReturn {
   originalStatus: 'draft' | 'published' | null
   isEditMode: boolean
   canEditSlug: boolean
+  qrCodeUrl: string | null
 }
 
 /**
@@ -25,6 +26,7 @@ export function useAnimationEdit({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [originalStatus, setOriginalStatus] = useState<'draft' | 'published' | null>(null)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
   const { updateData } = useWizardStore()
 
   useEffect(() => {
@@ -53,8 +55,9 @@ export function useAnimationEdit({
           throw new Error(result.error?.message || 'Erreur lors du chargement')
         }
 
-        // Store original status
+        // Store original status and QR code URL
         setOriginalStatus(result.data.status || 'draft')
+        setQrCodeUrl(result.data.qrCodeUrl || null)
 
         // Inject data into wizard store
         updateData(result.data)
@@ -75,5 +78,6 @@ export function useAnimationEdit({
     originalStatus,
     isEditMode: !!animationId,
     canEditSlug: originalStatus === 'draft', // Can only edit slug if draft
+    qrCodeUrl,
   }
 }

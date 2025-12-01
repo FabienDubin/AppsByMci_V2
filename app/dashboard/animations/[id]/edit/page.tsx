@@ -12,7 +12,7 @@ import { PublishConfirmationModal } from '@/components/wizard/publish-confirmati
 import { PublishSuccessModal } from '@/components/wizard/publish-success-modal'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Loader2, AlertTriangle, ArrowLeft } from 'lucide-react'
+import { Loader2, AlertTriangle, ArrowLeft, ExternalLink, Download, Copy, QrCode } from 'lucide-react'
 import { toast } from 'sonner'
 import { generateSummary } from '@/lib/utils/animation-summary'
 
@@ -50,10 +50,45 @@ export default function EditAnimationPage({
     loading: loadingAnimation,
     error: loadError,
     originalStatus,
+    qrCodeUrl: existingQrCodeUrl,
   } = useAnimationEdit({
     animationId,
     getAccessToken,
   })
+
+  // Build public URL
+  const publicUrl = animationData.slug
+    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/${animationData.slug}`
+    : null
+
+  // Copy URL to clipboard
+  const handleCopyUrl = async () => {
+    if (publicUrl) {
+      await navigator.clipboard.writeText(publicUrl)
+      toast.success('URL copiée !')
+    }
+  }
+
+  // Download QR code
+  const handleDownloadQrCode = async () => {
+    if (existingQrCodeUrl) {
+      try {
+        const response = await fetch(existingQrCodeUrl)
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `qrcode-${animationData.slug || 'animation'}.png`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        toast.success('QR code téléchargé !')
+      } catch {
+        toast.error('Erreur lors du téléchargement')
+      }
+    }
+  }
 
   // Calculate validation status
   const summary = useMemo(() => generateSummary(animationData), [animationData])
@@ -214,6 +249,59 @@ export default function EditAnimationPage({
           animationName={animationData.name || 'Sans nom'}
           animationId={animationId}
         />
+
+        {/* Published animation info - URL & QR Code */}
+        {originalStatus === 'published' && publicUrl && (
+          <div className="rounded-lg border bg-card p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <QrCode className="h-5 w-5 text-green-600" />
+              <h3 className="font-semibold text-green-600">Animation publiée</h3>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* URL Section */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-muted-foreground">URL publique</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 px-3 py-2 bg-muted rounded-md text-sm font-mono truncate">
+                    {publicUrl}
+                  </div>
+                  <Button variant="outline" size="icon" onClick={handleCopyUrl} title="Copier l'URL">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => window.open(publicUrl, '_blank')}
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* QR Code Section */}
+              {existingQrCodeUrl && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-muted-foreground">QR Code</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-24 h-24 border rounded-lg overflow-hidden bg-white p-1">
+                      <img
+                        src={existingQrCodeUrl}
+                        alt="QR Code"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <Button variant="outline" onClick={handleDownloadQrCode} className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Télécharger
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Summary cards */}
         <div className="rounded-lg border bg-card p-6">

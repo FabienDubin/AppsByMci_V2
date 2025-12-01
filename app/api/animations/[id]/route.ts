@@ -138,3 +138,53 @@ export async function PUT(
     return errorResponse('INTERNAL_3000', 'Une erreur est survenue', 500)
   }
 }
+
+/**
+ * DELETE /api/animations/[id]
+ * Delete an animation permanently
+ * Cascade deletes: all generations, QR code from blob storage
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Verify authentication
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      logger.warn({ path: '/api/animations/[id]', method: 'DELETE' }, 'Unauthorized access attempt')
+      return errorResponse('AUTH_1001', 'Authentication requise', 401)
+    }
+
+    // Get animation ID from route params
+    const { id: animationId } = await params
+
+    // Connect to database
+    await connectDatabase()
+
+    // Delete animation (service handles ownership check and cascade deletion)
+    await animationService.deleteAnimation(animationId, user.userId)
+
+    logger.info(
+      { userId: user.userId, animationId },
+      'Animation deleted successfully'
+    )
+
+    return successResponse({ deleted: true })
+  } catch (error: any) {
+    // Handle specific business errors
+    if (error.code === 'AUTH_1003') {
+      return errorResponse(error.code, error.message, 403)
+    }
+    if (error.code === 'NOT_FOUND_3001') {
+      return errorResponse(error.code, error.message, 404)
+    }
+
+    // Log unexpected errors
+    logger.error(
+      { error: error.message, stack: error.stack },
+      'Error deleting animation'
+    )
+    return errorResponse('INTERNAL_3000', 'Une erreur est survenue lors de la suppression', 500)
+  }
+}

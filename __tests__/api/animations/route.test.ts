@@ -435,7 +435,7 @@ describe('GET /api/animations', () => {
       expect(data.data).toHaveLength(2)
       expect(data.data[0].name).toBe('Test Animation 1')
       expect(data.data[1].name).toBe('Test Animation 2')
-      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(mockUser.userId)
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(mockUser.userId, 'active')
     })
 
     it('should return empty array when user has no animations', async () => {

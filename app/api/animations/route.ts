@@ -22,6 +22,8 @@ function errorResponse(code: string, message: string, status: number = 400) {
  * GET /api/animations
  * List all animations for authenticated user
  * Requires authentication
+ * Query params:
+ *   - filter: 'active' (default), 'archived', or 'all'
  */
 export async function GET(request: NextRequest) {
   try {
@@ -32,11 +34,19 @@ export async function GET(request: NextRequest) {
       return errorResponse('AUTH_1001', 'Authentication requise', 401)
     }
 
+    // Get filter from query params (Story 3.11)
+    const searchParams = request.nextUrl.searchParams
+    const filterParam = searchParams.get('filter')
+    const filter: 'active' | 'archived' | 'all' =
+      filterParam === 'archived' ? 'archived' :
+      filterParam === 'all' ? 'all' :
+      'active' // default
+
     // Connect to database
     await connectDatabase()
 
-    // List animations for user
-    const animations = await animationService.listAnimations(user.userId)
+    // List animations for user with filter
+    const animations = await animationService.listAnimations(user.userId, filter)
 
     // Transform to response format
     const response = animations.map((animation) =>
@@ -44,7 +54,7 @@ export async function GET(request: NextRequest) {
     )
 
     logger.info(
-      { userId: user.userId, count: response.length },
+      { userId: user.userId, filter, count: response.length },
       'Animations listed successfully'
     )
 

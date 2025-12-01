@@ -240,6 +240,7 @@ export interface IAnimation extends Document {
   customization?: ICustomization // Step 7 - New (replaces legacy)
   qrCodeUrl?: string
   publishedAt?: Date
+  archivedAt?: Date // Story 3.11 - Archive timestamp
   createdAt: Date
   updatedAt: Date
 }
@@ -757,6 +758,10 @@ const AnimationSchema = new Schema<IAnimation>(
       default: undefined
     },
     publishedAt: {
+      type: Date,
+      default: undefined
+    },
+    archivedAt: {
       type: Date,
       default: undefined
     }
