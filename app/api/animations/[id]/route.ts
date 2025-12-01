@@ -15,6 +15,59 @@ function errorResponse(code: string, message: string, status: number = 400) {
 }
 
 /**
+ * GET /api/animations/[id]
+ * Get a single animation by ID
+ * Requires authentication and ownership
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Verify authentication
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      logger.warn({ path: '/api/animations/[id]', method: 'GET' }, 'Unauthorized access attempt')
+      return errorResponse('AUTH_1001', 'Authentication requise', 401)
+    }
+
+    // Get animation ID from route params
+    const { id: animationId } = await params
+
+    // Connect to database
+    await connectDatabase()
+
+    // Get animation (service handles ownership check)
+    const animation = await animationService.getAnimationById(animationId, user.userId)
+
+    // Transform to response format
+    const response = animationService.toAnimationResponse(animation)
+
+    logger.info(
+      { userId: user.userId, animationId },
+      'Animation retrieved successfully'
+    )
+
+    return successResponse(response)
+  } catch (error: any) {
+    // Handle specific business errors
+    if (error.code === 'AUTH_1003') {
+      return errorResponse(error.code, error.message, 403)
+    }
+    if (error.code === 'NOT_FOUND_3001') {
+      return errorResponse(error.code, error.message, 404)
+    }
+
+    // Log unexpected errors
+    logger.error(
+      { error: error.message, stack: error.stack },
+      'Error retrieving animation'
+    )
+    return errorResponse('INTERNAL_3000', 'Une erreur est survenue', 500)
+  }
+}
+
+/**
  * PUT /api/animations/[id]
  * Update an existing animation
  * Requires authentication and ownership

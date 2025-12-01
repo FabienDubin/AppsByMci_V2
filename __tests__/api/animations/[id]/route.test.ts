@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { PUT } from '@/app/api/animations/[id]/route'
+import { GET, PUT } from '@/app/api/animations/[id]/route'
 import { animationService } from '@/lib/services/animation.service'
 import * as authModule from '@/lib/auth'
 
@@ -20,7 +20,20 @@ jest.mock('@/lib/auth')
 const mockAnimationService = animationService as jest.Mocked<typeof animationService>
 const mockAuth = authModule as jest.Mocked<typeof authModule>
 
-// Request factory
+// Request factory for GET requests
+function createMockGetRequest(token?: string): NextRequest {
+  const headers: HeadersInit = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  return new NextRequest('http://localhost:3000/api/animations/animation-123', {
+    method: 'GET',
+    headers,
+  })
+}
+
+// Request factory for PUT requests
 function createMockRequest(body: object, token?: string): NextRequest {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -444,6 +457,207 @@ describe('PUT /api/animations/[id]', () => {
       const request = createMockRequest(updateData, validToken)
 
       const response = await PUT(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('INTERNAL_3000')
+    })
+  })
+})
+
+// ===== GET /api/animations/[id] Tests (Story 3.10) =====
+
+describe('GET /api/animations/[id]', () => {
+  const validToken = 'valid-jwt-token'
+  const mockUser = {
+    userId: 'user-123',
+    email: 'test@example.com',
+    role: 'admin',
+  }
+  const animationId = 'animation-123'
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  describe('authentication', () => {
+    it('should return 401 if no token provided', async () => {
+      const request = createMockGetRequest()
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('AUTH_1001')
+    })
+
+    it('should return 401 if token is invalid', async () => {
+      mockAuth.verifyAccessToken.mockImplementation(() => {
+        throw new Error('Invalid token')
+      })
+
+      const request = createMockGetRequest('invalid-token')
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('AUTH_1001')
+    })
+  })
+
+  describe('success', () => {
+    beforeEach(() => {
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+    })
+
+    it('should return animation successfully', async () => {
+      const mockAnimation = {
+        _id: animationId,
+        userId: mockUser.userId,
+        name: 'Test Animation',
+        slug: 'test-animation',
+        description: 'Test description',
+        status: 'draft',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      const mockResponse = {
+        id: animationId,
+        userId: mockUser.userId,
+        name: 'Test Animation',
+        slug: 'test-animation',
+        description: 'Test description',
+        status: 'draft',
+        createdAt: mockAnimation.createdAt,
+        updatedAt: mockAnimation.updatedAt,
+      }
+
+      mockAnimationService.getAnimationById.mockResolvedValue(mockAnimation as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue(mockResponse as any)
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data).toMatchObject({
+        id: animationId,
+        name: 'Test Animation',
+        slug: 'test-animation',
+        status: 'draft',
+      })
+      expect(mockAnimationService.getAnimationById).toHaveBeenCalledWith(
+        animationId,
+        mockUser.userId
+      )
+    })
+
+    it('should return published animation with all wizard data', async () => {
+      const mockAnimation = {
+        _id: animationId,
+        userId: mockUser.userId,
+        name: 'Published Animation',
+        slug: 'published-animation',
+        status: 'published',
+        accessConfig: { type: 'code', code: 'TEST123' },
+        baseFields: {
+          name: { enabled: true, required: true },
+          email: { enabled: true, required: true },
+        },
+        pipeline: [{ type: 'text', content: 'Test' }],
+        customization: {
+          primaryColor: '#FF0000',
+          textCard: { backgroundColor: '#FFFFFF' },
+        },
+        qrCodeUrl: 'https://example.com/qr.png',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      const mockResponse = {
+        id: animationId,
+        ...mockAnimation,
+      }
+
+      mockAnimationService.getAnimationById.mockResolvedValue(mockAnimation as any)
+      mockAnimationService.toAnimationResponse.mockReturnValue(mockResponse as any)
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data.status).toBe('published')
+      expect(data.data.accessConfig).toBeDefined()
+      expect(data.data.pipeline).toBeDefined()
+      expect(data.data.customization).toBeDefined()
+    })
+  })
+
+  describe('errors', () => {
+    beforeEach(() => {
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+    })
+
+    it('should return 404 if animation not found', async () => {
+      const error = new Error('Animation introuvable')
+      ;(error as any).code = 'NOT_FOUND_3001'
+      mockAnimationService.getAnimationById.mockRejectedValue(error)
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: 'non-existent-id' }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(404)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('NOT_FOUND_3001')
+    })
+
+    it('should return 403 if user does not own animation', async () => {
+      const error = new Error('Accès refusé à cette animation')
+      ;(error as any).code = 'AUTH_1003'
+      mockAnimationService.getAnimationById.mockRejectedValue(error)
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request, {
+        params: Promise.resolve({ id: animationId }),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(403)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('AUTH_1003')
+    })
+
+    it('should return 500 on database error', async () => {
+      mockAnimationService.getAnimationById.mockRejectedValue(new Error('Database error'))
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request, {
         params: Promise.resolve({ id: animationId }),
       })
       const data = await response.json()

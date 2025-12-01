@@ -19,6 +19,44 @@ function errorResponse(code: string, message: string, status: number = 400) {
 }
 
 /**
+ * GET /api/animations
+ * List all animations for authenticated user
+ * Requires authentication
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Verify authentication
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      logger.warn({ path: '/api/animations', method: 'GET' }, 'Unauthorized access attempt')
+      return errorResponse('AUTH_1001', 'Authentication requise', 401)
+    }
+
+    // Connect to database
+    await connectDatabase()
+
+    // List animations for user
+    const animations = await animationService.listAnimations(user.userId)
+
+    // Transform to response format
+    const response = animations.map((animation) =>
+      animationService.toAnimationResponse(animation)
+    )
+
+    logger.info(
+      { userId: user.userId, count: response.length },
+      'Animations listed successfully'
+    )
+
+    return successResponse(response)
+  } catch (error: any) {
+    // Log unexpected errors
+    logger.error({ error: error.message, stack: error.stack }, 'Error listing animations')
+    return errorResponse('INTERNAL_3000', 'Une erreur est survenue', 500)
+  }
+}
+
+/**
  * POST /api/animations
  * Create a new animation draft
  * Requires authentication

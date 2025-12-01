@@ -14,6 +14,7 @@ import Image from 'next/image'
 
 interface Step8SummaryProps {
   onGoToStep: (step: number) => void
+  mode?: 'create' | 'edit'
 }
 
 /**
@@ -21,7 +22,7 @@ interface Step8SummaryProps {
  * Displays a complete recap of the animation configuration
  * with 7 sections matching Steps 1-7 of the wizard
  */
-export function Step8Summary({ onGoToStep }: Step8SummaryProps) {
+export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps) {
   const { animationData } = useWizardStore()
 
   // Generate summary from animation data
@@ -45,9 +46,13 @@ export function Step8Summary({ onGoToStep }: Step8SummaryProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold">Récapitulatif & Publication</h2>
+        <h2 className="text-xl font-semibold">
+          {mode === 'edit' ? "Configuration de l'animation" : 'Récapitulatif & Publication'}
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Vérifiez votre configuration avant de publier
+          {mode === 'edit'
+            ? 'Cliquez sur "Modifier" pour éditer une section'
+            : 'Vérifiez votre configuration avant de publier'}
         </p>
       </div>
 

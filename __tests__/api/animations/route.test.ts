@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { POST } from '@/app/api/animations/route'
+import { POST, GET } from '@/app/api/animations/route'
 import { animationService } from '@/lib/services/animation.service'
 import * as authModule from '@/lib/auth'
 
@@ -339,6 +339,130 @@ describe('POST /api/animations', () => {
       const request = createMockRequest(requestData, validToken)
 
       const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('INTERNAL_3000')
+    })
+  })
+})
+
+// ===== GET /api/animations Tests (Story 3.10) =====
+
+describe('GET /api/animations', () => {
+  const validToken = 'valid-jwt-token'
+  const mockUser = {
+    userId: 'user-123',
+    email: 'test@example.com',
+    role: 'admin',
+  }
+
+  function createMockGetRequest(token?: string): NextRequest {
+    const headers: HeadersInit = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    return new NextRequest('http://localhost:3000/api/animations', {
+      method: 'GET',
+      headers,
+    })
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  describe('authentication', () => {
+    it('should return 401 if not authenticated', async () => {
+      const request = createMockGetRequest()
+
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('AUTH_1001')
+    })
+  })
+
+  describe('success', () => {
+    beforeEach(() => {
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+    })
+
+    it('should return list of animations for authenticated user', async () => {
+      const mockAnimations = [
+        {
+          _id: 'animation-1',
+          name: 'Test Animation 1',
+          slug: 'test-animation-1',
+          status: 'draft',
+          userId: mockUser.userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          _id: 'animation-2',
+          name: 'Test Animation 2',
+          slug: 'test-animation-2',
+          status: 'published',
+          userId: mockUser.userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]
+
+      mockAnimationService.listAnimations.mockResolvedValue(mockAnimations as any)
+      mockAnimationService.toAnimationResponse.mockImplementation((anim) => ({
+        id: (anim as any)._id,
+        name: anim.name,
+        slug: anim.slug,
+        status: anim.status,
+        userId: anim.userId.toString(),
+        createdAt: (anim as any).createdAt,
+        updatedAt: (anim as any).updatedAt,
+      }) as any)
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data).toHaveLength(2)
+      expect(data.data[0].name).toBe('Test Animation 1')
+      expect(data.data[1].name).toBe('Test Animation 2')
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(mockUser.userId)
+    })
+
+    it('should return empty array when user has no animations', async () => {
+      mockAnimationService.listAnimations.mockResolvedValue([])
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.data).toHaveLength(0)
+    })
+  })
+
+  describe('errors', () => {
+    beforeEach(() => {
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+    })
+
+    it('should return 500 on database error', async () => {
+      mockAnimationService.listAnimations.mockRejectedValue(new Error('Database error'))
+
+      const request = createMockGetRequest(validToken)
+
+      const response = await GET(request)
       const data = await response.json()
 
       expect(response.status).toBe(500)

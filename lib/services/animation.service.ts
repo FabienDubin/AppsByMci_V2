@@ -2,6 +2,7 @@ import Animation, { IAnimation } from '@/models/Animation.model'
 import { logger } from '@/lib/logger'
 import mongoose from 'mongoose'
 import { generateAndUploadQRCode, buildPublicUrl } from '@/lib/services/qrcode.service'
+import type { UpdateAnimation } from '@/lib/schemas/animation.schema'
 
 // Animation error codes
 const ANIMATION_ERRORS = {
@@ -123,7 +124,7 @@ export class AnimationService {
    * Update an existing animation
    * @param animationId - The animation ID to update
    * @param userId - The user ID making the update
-   * @param data - Partial animation data to update
+   * @param data - Partial animation data to update (from Zod validated schema)
    * @returns Updated animation
    * @throws Error with code NOT_FOUND_3001 if animation not found
    * @throws Error with code AUTH_1003 if user doesn't own the animation
@@ -132,7 +133,7 @@ export class AnimationService {
   async updateAnimation(
     animationId: string,
     userId: string,
-    data: Partial<IAnimation>
+    data: UpdateAnimation
   ): Promise<IAnimation> {
     // Get animation and verify ownership
     const animation = await this.getAnimationById(animationId, userId)
@@ -346,6 +347,25 @@ export class AnimationService {
     )
 
     return animation
+  }
+
+  /**
+   * List all animations for a user
+   * @param userId - The user ID to list animations for
+   * @returns Array of animations
+   */
+  async listAnimations(userId: string): Promise<IAnimation[]> {
+    const animations = await Animation.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      status: { $ne: 'archived' }, // Exclude archived animations
+    }).sort({ createdAt: -1 })
+
+    logger.info(
+      { userId, count: animations.length },
+      'Listed animations for user'
+    )
+
+    return animations
   }
 
   /**

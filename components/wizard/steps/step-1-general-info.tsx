@@ -63,12 +63,13 @@ export function Step1GeneralInfo({
   const slug = watch('slug')
 
   // Auto-generate slug from name when name changes
+  // Skip auto-generation if slug is protected (published animation)
   useEffect(() => {
-    if (name && !slugManuallyEdited) {
+    if (name && !slugManuallyEdited && canEditSlug) {
       const generatedSlug = generateSlug(name)
       setValue('slug', generatedSlug)
     }
-  }, [name, slugManuallyEdited, setValue])
+  }, [name, slugManuallyEdited, canEditSlug, setValue])
 
   const onSubmit = async (data: Step1Data) => {
     await onNext(data)
