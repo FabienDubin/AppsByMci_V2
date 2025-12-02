@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useParticipantFormStore } from '@/lib/stores/participantForm.store'
 import { useAnimation } from '@/components/participant/ParticipantContext'
 import { BaseFieldsStep } from './steps/BaseFieldsStep'
+import { SelfieStep } from './steps/SelfieStep'
+import type { IInputElement } from '@/models/Animation.model'
 
 interface ParticipantWizardProps {
   className?: string
@@ -25,7 +28,11 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
     nextStep,
     prevStep,
     isSubmitting,
+    formData,
   } = useParticipantFormStore()
+
+  // Local error state for step validation
+  const [stepError, setStepError] = useState<string | null>(null)
 
   // Calculate total steps based on animation configuration
   const stepConfig = useMemo(() => {
@@ -73,8 +80,39 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
   const isFirstStep = currentStep === 1
   const isLastStep = currentStep === totalSteps
 
+  /**
+   * Validate current step before navigation
+   * Returns true if valid, false otherwise
+   */
+  const validateCurrentStep = (): boolean => {
+    // Clear previous error
+    setStepError(null)
+
+    // Validate selfie step
+    if (currentStepConfig?.type === 'selfie') {
+      const selfieElement = animation.inputCollection?.elements?.find(
+        (el: IInputElement) => el.id === currentStepConfig.id
+      ) as IInputElement | undefined
+
+      // Check if selfie is required and not provided
+      if (selfieElement?.required !== false && !formData.selfie) {
+        const errorMessage = 'Le selfie est requis pour continuer'
+        setStepError(errorMessage)
+        toast.error(errorMessage)
+        return false
+      }
+    }
+
+    return true
+  }
+
   // Handle navigation
   const handleNext = () => {
+    // Validate current step before proceeding
+    if (!validateCurrentStep()) {
+      return
+    }
+
     if (!isLastStep) {
       nextStep()
     }
@@ -100,13 +138,30 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
             isLastStep={isLastStep}
           />
         )
-      case 'selfie':
-        // TODO: Implement SelfieStep (Story 4.3)
+      case 'selfie': {
+        // Find the selfie element from inputCollection
+        const selfieElement = animation.inputCollection?.elements?.find(
+          (el: IInputElement) => el.id === currentStepConfig.id
+        ) as IInputElement | undefined
+
+        if (!selfieElement) {
+          return (
+            <div className="text-center py-8 text-gray-500">
+              Erreur: configuration selfie manquante
+            </div>
+          )
+        }
+
         return (
-          <div className="text-center py-8 text-gray-500">
-            Capture selfie (à implémenter)
-          </div>
+          <SelfieStep
+            element={selfieElement}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            isFirstStep={isFirstStep}
+            isLastStep={isLastStep}
+          />
         )
+      }
       case 'choice':
       case 'slider':
       case 'free-text':
@@ -140,6 +195,13 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
       <div className="mb-6">
         {renderStepContent()}
       </div>
+
+      {/* Step validation error */}
+      {stepError && (
+        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+          {stepError}
+        </div>
+      )}
 
       {/* Navigation buttons - only show if not on base-fields step (which has its own buttons) */}
       {currentStepConfig?.type !== 'base-fields' && (
