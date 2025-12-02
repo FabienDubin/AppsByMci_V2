@@ -1,5 +1,13 @@
 // AI Models configuration - hardcoded for Epic 1
 // Models will be configurable via CMS in Epic 6+ (Post-MVP)
+//
+// POST-MVP: Consider adding Replicate integration for more models:
+// - FLUX Kontext Pro: Best for face+prompt generation (~$0.05/image)
+// - FLUX PuLID: Identity-preserving avatars
+// - PhotoMaker: Expressive style transfer
+// - Face-swap models
+// SDK: npm install replicate - accepts Buffer directly, simpler than base64
+// See: https://replicate.com/collections/flux
 
 import { AIModel } from './types'
 
@@ -8,10 +16,11 @@ import { AIModel } from './types'
  * - DALL-E 3: Text-to-image generation (OpenAI)
  * - GPT Image 1: Image editing with input image support (OpenAI)
  * - Imagen 4.0: Text-to-image generation (Google)
+ * - Gemini 2.5 Flash Image: Text-to-image + reference image support (Google)
  *
  * supportedModes:
  * - 'none': Text-to-image only, no image input
- * - 'reference': Image used as style reference (OpenAI /generations with image param)
+ * - 'reference': Image used as style/subject reference
  * - 'edit': Direct image transformation (OpenAI /edits endpoint)
  */
 export const AI_MODELS: AIModel[] = [
@@ -40,12 +49,23 @@ export const AI_MODELS: AIModel[] = [
   {
     id: 'imagen-4.0-generate-001',
     name: 'Imagen 4.0',
-    description: 'Génération d\'images photoréalistes. Peut utiliser des images de référence pour la cohérence de style.',
+    description: 'Génération d\'images photoréalistes à partir de texte uniquement. Ne supporte pas les images de référence.',
     provider: 'google',
     capabilities: {
-      supportedModes: ['none', 'reference'],  // No edit mode - reference only
+      supportedModes: ['none'],  // Text-to-image only - Imagen 4 does NOT support reference images
       supportsEdit: false,
       maxSize: 1024,
+    },
+  },
+  {
+    id: 'gemini-2.5-flash-image',
+    name: 'Gemini 2.5 Flash Image',
+    description: 'Génération et édition d\'images avec support de référence. Peut transformer un selfie ou utiliser une image comme base.',
+    provider: 'google',
+    capabilities: {
+      supportedModes: ['none', 'reference'],  // Supports reference images via inline_data
+      supportsEdit: false,
+      maxSize: 2048,
     },
   },
 ]

@@ -42,6 +42,7 @@ jest.mock('@/models/Animation.model', () => ({
 // Mock generation service
 const mockGenerationService = {
   createGeneration: jest.fn(),
+  getGenerationById: jest.fn(),
 }
 
 jest.mock('@/lib/services/generation.service', () => ({
@@ -78,6 +79,11 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
+// Mock pipeline orchestrator service
+jest.mock('@/lib/services/pipeline-orchestrator.service', () => ({
+  runPipelineForGeneration: jest.fn().mockResolvedValue(undefined),
+}))
+
 import { POST } from '@/app/api/generations/route'
 import { checkGenerationRateLimit, recordGenerationSubmission } from '@/lib/rate-limit'
 import mongoose from 'mongoose'
@@ -99,6 +105,12 @@ describe('POST /api/generations', () => {
     jest.clearAllMocks()
     ;(mongoose.Types.ObjectId.isValid as jest.Mock).mockReturnValue(true)
     ;(checkGenerationRateLimit as jest.Mock).mockReturnValue({ allowed: true, remaining: 5 })
+    // Default mock for getGenerationById - returns the created generation
+    mockGenerationService.getGenerationById.mockResolvedValue({
+      _id: { toString: () => 'gen-123' },
+      participantData: {},
+      selfieUrl: null,
+    })
   })
 
   describe('Rate limiting (AC5)', () => {

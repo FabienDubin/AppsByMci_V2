@@ -118,4 +118,80 @@ export const generationService = {
 
     return generation
   },
+
+  /**
+   * Update generation with successful result
+   * @param generationId - Generation document ID
+   * @param resultUrl - URL of the generated image
+   * @returns Updated generation or null
+   */
+  async updateGenerationResult(
+    generationId: string,
+    resultUrl: string
+  ): Promise<IGeneration | null> {
+    await connectDatabase()
+
+    if (!mongoose.Types.ObjectId.isValid(generationId)) {
+      return null
+    }
+
+    const generation = await Generation.findByIdAndUpdate(
+      generationId,
+      {
+        status: 'completed',
+        generatedImageUrl: resultUrl,
+        completedAt: new Date(),
+      },
+      { new: true }
+    )
+
+    if (generation) {
+      logger.info({
+        msg: 'Generation completed',
+        generationId,
+        resultUrl,
+      })
+    }
+
+    return generation
+  },
+
+  /**
+   * Update generation with error information
+   * @param generationId - Generation document ID
+   * @param errorCode - Error code (e.g., GEN_5002)
+   * @param errorMessage - Error message
+   * @returns Updated generation or null
+   */
+  async updateGenerationError(
+    generationId: string,
+    errorCode: string,
+    errorMessage: string
+  ): Promise<IGeneration | null> {
+    await connectDatabase()
+
+    if (!mongoose.Types.ObjectId.isValid(generationId)) {
+      return null
+    }
+
+    const generation = await Generation.findByIdAndUpdate(
+      generationId,
+      {
+        status: 'failed',
+        error: JSON.stringify({ code: errorCode, message: errorMessage }),
+      },
+      { new: true }
+    )
+
+    if (generation) {
+      logger.error({
+        msg: 'Generation failed',
+        generationId,
+        errorCode,
+        errorMessage,
+      })
+    }
+
+    return generation
+  },
 }

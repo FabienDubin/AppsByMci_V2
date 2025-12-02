@@ -6,6 +6,7 @@ import Animation from '@/models/Animation.model'
 import { generationService } from '@/lib/services/generation.service'
 import { blobStorageService } from '@/lib/blob-storage'
 import { checkGenerationRateLimit, recordGenerationSubmission } from '@/lib/rate-limit'
+import { runPipelineForGeneration } from '@/lib/services/pipeline-orchestrator.service'
 import { logger } from '@/lib/logger'
 
 // Generation error codes
@@ -232,6 +233,19 @@ export async function POST(request: NextRequest) {
       },
       'Generation created successfully'
     )
+
+    // Start pipeline execution asynchronously (don't block HTTP response)
+    // Reload generation to get the updated selfieUrl
+    const updatedGeneration = await generationService.getGenerationById(generation._id.toString())
+    if (updatedGeneration) {
+      // Execute pipeline in the background (fire and forget)
+      runPipelineForGeneration(updatedGeneration, animation).catch((error) => {
+        logger.error(
+          { error, generationId: generation._id.toString() },
+          'Background pipeline execution failed'
+        )
+      })
+    }
 
     // Return success response
     return successResponse(
