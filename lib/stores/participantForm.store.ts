@@ -26,6 +26,13 @@ export interface ParticipantFormData {
 }
 
 /**
+ * Wizard phase type
+ * - form: collecting participant data
+ * - processing: showing loading screen after submission
+ */
+export type WizardPhase = 'form' | 'processing'
+
+/**
  * Store state type
  */
 interface ParticipantFormState {
@@ -34,6 +41,8 @@ interface ParticipantFormState {
   formData: ParticipantFormData
   isSubmitting: boolean
   error: string | null
+  wizardPhase: WizardPhase
+  generationId: string | null
 }
 
 /**
@@ -57,6 +66,8 @@ interface ParticipantFormActions {
   // State management
   setSubmitting: (submitting: boolean) => void
   setError: (error: string | null) => void
+  setWizardPhase: (phase: WizardPhase) => void
+  setGenerationId: (id: string | null) => void
   reset: () => void
 }
 
@@ -72,6 +83,8 @@ const initialState: ParticipantFormState = {
   },
   isSubmitting: false,
   error: null,
+  wizardPhase: 'form',
+  generationId: null,
 }
 
 /**
@@ -180,6 +193,20 @@ export const useParticipantFormStore = create<ParticipantFormStore>()((set, get)
    */
   setError: (error: string | null) => {
     set({ error })
+  },
+
+  /**
+   * Set wizard phase (form/processing)
+   */
+  setWizardPhase: (phase: WizardPhase) => {
+    set({ wizardPhase: phase })
+  },
+
+  /**
+   * Set generation ID after successful submission
+   */
+  setGenerationId: (id: string | null) => {
+    set({ generationId: id })
   },
 
   /**

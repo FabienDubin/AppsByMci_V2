@@ -5,17 +5,17 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ParticipantWizard } from '@/components/participant/ParticipantWizard'
 import { useParticipantFormStore } from '@/lib/stores/participantForm.store'
-import type { IAnimation } from '@/models/Animation.model'
+import type { AnimationResponse } from '@/lib/services/animation.service'
 
-// Mock the animation context
-const mockAnimation: Partial<IAnimation> = {
+// Mock the animation context - using AnimationResponse which has 'id' not '_id'
+const mockAnimation: Partial<AnimationResponse> = {
   id: 'anim-1',
   baseFields: {
     name: { enabled: false, required: false },
     firstName: { enabled: false, required: false },
     email: { enabled: false, required: false },
   },
-  accessConfig: { type: 'open' },
+  accessConfig: { type: 'none' },
   inputCollection: {
     elements: [],
   },
@@ -35,6 +35,9 @@ jest.mock('sonner', () => ({
   },
 }))
 
+// Mock fetch for submission tests
+global.fetch = jest.fn()
+
 // Import after mocking
 import { toast } from 'sonner'
 
@@ -44,6 +47,11 @@ describe('ParticipantWizard - Question Validation', () => {
     jest.useFakeTimers()
     useParticipantFormStore.getState().reset()
     mockAnimationValue = { ...mockAnimation }
+    // Mock fetch to return success for submission tests
+    ;(fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true, data: { generationId: 'gen-123', status: 'pending' } }),
+    })
   })
 
   afterEach(() => {
@@ -59,7 +67,7 @@ describe('ParticipantWizard - Question Validation', () => {
           firstName: { enabled: false, required: false },
           email: { enabled: false, required: false },
         },
-        accessConfig: { type: 'open' },
+        accessConfig: { type: 'none' },
         inputCollection: {
           elements: [
             {
@@ -83,14 +91,14 @@ describe('ParticipantWizard - Question Validation', () => {
       expect(screen.getByRole('button', { name: 'Option B' })).toBeInTheDocument()
     })
 
-    it('should not show Next button on choice questions but show Submit if last step', () => {
+    it('should not show Next button on choice questions but show Generate avatar if last step', () => {
       render(<ParticipantWizard />)
 
       // The wizard should not show the Suivant button for choice questions
       expect(screen.queryByRole('button', { name: /Suivant/i })).not.toBeInTheDocument()
 
-      // But should show Soumettre since this is the only/last step
-      expect(screen.getByRole('button', { name: 'Soumettre' })).toBeInTheDocument()
+      // But should show "Générer mon avatar" since this is the only/last step
+      expect(screen.getByRole('button', { name: /Générer mon avatar/i })).toBeInTheDocument()
     })
 
     it('should save answer to store when choice is selected', () => {
@@ -148,7 +156,7 @@ describe('ParticipantWizard - Question Validation', () => {
       expect(screen.getByText('Slider test')).toBeInTheDocument()
     })
 
-    it('should show Submit button when choice is the last step', () => {
+    it('should show Generate avatar button when choice is the last step', () => {
       // Single choice question as last step
       mockAnimationValue = {
         ...mockAnimation,
@@ -168,8 +176,8 @@ describe('ParticipantWizard - Question Validation', () => {
 
       render(<ParticipantWizard />)
 
-      // Should show Submit button for last step choice
-      expect(screen.getByRole('button', { name: 'Soumettre' })).toBeInTheDocument()
+      // Should show "Générer mon avatar" button for last step choice
+      expect(screen.getByRole('button', { name: /Générer mon avatar/i })).toBeInTheDocument()
     })
   })
 
@@ -200,20 +208,19 @@ describe('ParticipantWizard - Question Validation', () => {
       expect(screen.getByRole('textbox')).toBeInTheDocument()
     })
 
-    it('should show Next button for free-text questions', () => {
+    it('should show Generate avatar button for free-text questions on last step', () => {
       render(<ParticipantWizard />)
 
-      // The wizard should show Suivant button for free-text questions
-      // Note: If this is the last step, it shows "Soumettre" instead
-      const button = screen.getByRole('button', { name: /Soumettre/i })
+      // The wizard should show "Générer mon avatar" button for last step
+      const button = screen.getByRole('button', { name: /Générer mon avatar/i })
       expect(button).toBeInTheDocument()
     })
 
     it('should show error when trying to submit empty required free-text', async () => {
       render(<ParticipantWizard />)
 
-      // Try to click Submit without entering text
-      const submitButton = screen.getByRole('button', { name: /Soumettre/i })
+      // Try to click Generate avatar without entering text
+      const submitButton = screen.getByRole('button', { name: /Générer mon avatar/i })
       fireEvent.click(submitButton)
 
       // Should show error toast
@@ -242,11 +249,11 @@ describe('ParticipantWizard - Question Validation', () => {
 
       render(<ParticipantWizard />)
 
-      // Try to click Submit without entering text
-      const submitButton = screen.getByRole('button', { name: /Soumettre/i })
+      // Try to click Generate avatar without entering text
+      const submitButton = screen.getByRole('button', { name: /Générer mon avatar/i })
       fireEvent.click(submitButton)
 
-      // Should NOT show error
+      // Should NOT show error (validation passes, API will be called)
       expect(toast.error).not.toHaveBeenCalled()
     })
 
@@ -259,8 +266,8 @@ describe('ParticipantWizard - Question Validation', () => {
       const textarea = screen.getByRole('textbox')
       await user.type(textarea, 'My answer')
 
-      // Now click Submit
-      const submitButton = screen.getByRole('button', { name: /Soumettre/i })
+      // Now click Generate avatar
+      const submitButton = screen.getByRole('button', { name: /Générer mon avatar/i })
       fireEvent.click(submitButton)
 
       // Should NOT show error
@@ -299,11 +306,11 @@ describe('ParticipantWizard - Question Validation', () => {
       expect(screen.getByText('Fort')).toBeInTheDocument()
     })
 
-    it('should show Next button for slider questions', () => {
+    it('should show Generate avatar button for slider questions on last step', () => {
       render(<ParticipantWizard />)
 
-      // Slider questions need explicit Next/Submit
-      expect(screen.getByRole('button', { name: /Soumettre/i })).toBeInTheDocument()
+      // Slider questions need explicit button - "Générer mon avatar" for last step
+      expect(screen.getByRole('button', { name: /Générer mon avatar/i })).toBeInTheDocument()
     })
 
     it('should have default value saved to store', () => {

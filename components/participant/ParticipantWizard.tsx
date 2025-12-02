@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useParticipantFormStore } from '@/lib/stores/participantForm.store'
@@ -10,6 +11,7 @@ import { useAnimation } from '@/components/participant/ParticipantContext'
 import { BaseFieldsStep } from './steps/BaseFieldsStep'
 import { SelfieStep } from './steps/SelfieStep'
 import { QuestionStep } from './steps/QuestionStep'
+import { ProcessingStep } from './steps/ProcessingStep'
 import type { IInputElement } from '@/models/Animation.model'
 
 interface ParticipantWizardProps {
@@ -30,6 +32,11 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
     prevStep,
     isSubmitting,
     formData,
+    wizardPhase,
+    generationId,
+    setSubmitting,
+    setWizardPhase,
+    setGenerationId,
   } = useParticipantFormStore()
 
   // Local error state for step validation
@@ -133,6 +140,61 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
     return true
   }
 
+  /**
+   * Handle form submission to create a generation
+   * Called when user clicks "🚀 Générer mon avatar" on last step
+   */
+  const handleSubmit = useCallback(async () => {
+    // Validate current step first
+    if (!validateCurrentStep()) {
+      return
+    }
+
+    // Start submission
+    setSubmitting(true)
+
+    try {
+      // Build request body
+      const requestBody = {
+        animationId: animation.id,
+        formData: {
+          nom: formData.nom,
+          prenom: formData.prenom,
+          email: formData.email,
+          answers: formData.answers,
+        },
+        selfie: formData.selfie,
+      }
+
+      // Call API
+      const response = await fetch('/api/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Handle error responses
+        const errorMessage = data.error?.message || 'Une erreur est survenue'
+        toast.error(errorMessage)
+        setSubmitting(false)
+        return
+      }
+
+      // Success - store generation ID and transition to processing phase
+      setGenerationId(data.data.generationId)
+      setWizardPhase('processing')
+    } catch (error) {
+      logger.error({ error, animationId: animation.id }, 'Submission error')
+      toast.error('Erreur de connexion. Veuillez réessayer.')
+      setSubmitting(false)
+    }
+  }, [animation.id, formData, setSubmitting, setGenerationId, setWizardPhase])
+
   // Handle navigation
   const handleNext = () => {
     // Validate current step before proceeding
@@ -220,6 +282,19 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
     }
   }
 
+  // Processing phase - show loading screen
+  if (wizardPhase === 'processing' && generationId) {
+    return (
+      <div className={className}>
+        <ProcessingStep
+          generationId={generationId}
+          customLoadingMessages={animation.customization?.loadingMessages}
+        />
+      </div>
+    )
+  }
+
+  // Form phase - show step wizard
   return (
     <div className={className}>
       {/* Progress bar */}
@@ -250,24 +325,31 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
       {/* Navigation buttons logic:
           - base-fields: has its own navigation buttons
           - choice (not last step): auto-navigation, no buttons needed (Previous is in ChoiceQuestion)
-          - choice (last step): show Submit button only
-          - other types: show Previous/Next or Submit buttons
+          - choice (last step): show Generate avatar button only
+          - other types: show Previous/Next or Generate avatar buttons
       */}
       {currentStepConfig?.type !== 'base-fields' && (
         <>
           {/* For choice questions that are NOT the last step: no nav buttons (auto-nav handles it) */}
-          {/* For choice questions that ARE the last step: show Submit button */}
+          {/* For choice questions that ARE the last step: show Generate avatar button */}
           {currentStepConfig?.type === 'choice' ? (
             isLastStep && (
               <div className="flex justify-center gap-4 mt-4">
                 <Button
                   type="button"
-                  onClick={handleNext}
+                  onClick={handleSubmit}
                   disabled={isSubmitting}
                   className="flex-1"
                   style={{ backgroundColor: 'var(--primary-color)' }}
                 >
-                  Soumettre
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    '🚀 Générer mon avatar'
+                  )}
                 </Button>
               </div>
             )
@@ -288,13 +370,24 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
 
               <Button
                 type="button"
-                onClick={handleNext}
+                onClick={isLastStep ? handleSubmit : handleNext}
                 disabled={isSubmitting}
                 className={isFirstStep ? 'w-full' : 'flex-1'}
                 style={{ backgroundColor: 'var(--primary-color)' }}
               >
-                {isLastStep ? 'Soumettre' : 'Suivant'}
-                {!isLastStep && <ChevronRight className="w-4 h-4 ml-2" />}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Envoi en cours...
+                  </>
+                ) : isLastStep ? (
+                  '🚀 Générer mon avatar'
+                ) : (
+                  <>
+                    Suivant
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
               </Button>
             </div>
           )}

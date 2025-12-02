@@ -36,6 +36,7 @@ const ALLOWED_BACKGROUND_TYPES = ['image/png', 'image/jpeg', 'image/jpg'] as con
  */
 const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2 MB
 const MAX_BACKGROUND_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_SELFIE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /**
  * File upload options
@@ -568,6 +569,52 @@ class BlobStorageService {
       'image/svg+xml': 'svg',
     };
     return mimeToExt[mimeType] || 'bin';
+  }
+
+  /**
+   * Upload a participant selfie to Azure Blob Storage
+   * @param base64Data - Base64 encoded image data (with or without data URL prefix)
+   * @param generationId - Generation ID for unique naming
+   * @returns URL of the uploaded selfie (private, requires SAS for access)
+   */
+  async uploadSelfie(base64Data: string, generationId: string): Promise<string> {
+    // Extract base64 content and content type from data URL
+    let contentType = 'image/jpeg';
+    let base64Content = base64Data;
+
+    // Handle data URL format: data:image/jpeg;base64,/9j/4AAQ...
+    if (base64Data.startsWith('data:')) {
+      const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        contentType = matches[1];
+        base64Content = matches[2];
+      }
+    }
+
+    // Decode base64 to buffer
+    const buffer = Buffer.from(base64Content, 'base64');
+
+    // Validate file size
+    if (buffer.length > MAX_SELFIE_SIZE) {
+      throw new Error(`Le selfie ne doit pas dépasser ${MAX_SELFIE_SIZE / (1024 * 1024)} MB`);
+    }
+
+    // Generate blob name: selfies/{generationId}.jpg
+    const extension = this.getExtensionFromMimeType(contentType);
+    const blobName = `selfies/${generationId}.${extension}`;
+
+    // Upload file to uploads container (private)
+    const result = await this.uploadFile(CONTAINERS.UPLOADS, blobName, buffer, {
+      contentType,
+      metadata: {
+        generationId,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    logger.info({ msg: 'Selfie uploaded', generationId, blobName });
+
+    return result.url;
   }
 }
 

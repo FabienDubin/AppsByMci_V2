@@ -17,9 +17,14 @@ const BLOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
 const MAX_ANIMATION_CREATIONS = 10
 const ANIMATION_WINDOW_MS = 60 * 60 * 1000 // 1 hour
 
+// Rate limit configuration for generation submissions (FR37)
+const MAX_GENERATION_SUBMISSIONS = 5
+const GENERATION_WINDOW_MS = 60 * 1000 // 1 minute
+
 // In-memory stores (resets on restart, not shared across instances)
 const rateLimitStore = new Map<string, RateLimitEntry>()
 const animationCreationStore = new Map<string, RateLimitEntry>()
+const generationSubmissionStore = new Map<string, RateLimitEntry>()
 
 // Periodic cleanup to prevent memory leaks
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 min
@@ -46,6 +51,14 @@ if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
       // Remove expired entries
       if (now - entry.firstAttempt > ANIMATION_WINDOW_MS) {
         animationCreationStore.delete(key)
+      }
+    }
+
+    // Cleanup generation submission rate limits
+    for (const [key, entry] of generationSubmissionStore.entries()) {
+      // Remove expired entries
+      if (now - entry.firstAttempt > GENERATION_WINDOW_MS) {
+        generationSubmissionStore.delete(key)
       }
     }
   }, CLEANUP_INTERVAL_MS)
@@ -167,6 +180,7 @@ export function getRateLimitStatus(ip: string): RateLimitEntry | undefined {
 export function clearAllRateLimits(): void {
   rateLimitStore.clear()
   animationCreationStore.clear()
+  generationSubmissionStore.clear()
 }
 
 /**
@@ -231,5 +245,70 @@ export function recordAnimationCreation(userId: string): void {
   }
 
   // Increment creation counter
+  entry.attempts++
+}
+
+/**
+ * Check if an IP has exceeded generation submission rate limit (FR37)
+ * @param ip The client IP address
+ * @returns Whether the request is allowed and remaining submissions
+ */
+export function checkGenerationRateLimit(ip: string): RateLimitResult {
+  const now = Date.now()
+  const entry = generationSubmissionStore.get(ip)
+
+  // First submission from this IP
+  if (!entry) {
+    return { allowed: true, remaining: MAX_GENERATION_SUBMISSIONS }
+  }
+
+  // Time window expired, reset counter
+  if (now - entry.firstAttempt > GENERATION_WINDOW_MS) {
+    generationSubmissionStore.delete(ip)
+    return { allowed: true, remaining: MAX_GENERATION_SUBMISSIONS }
+  }
+
+  // Check if submission limit reached
+  if (entry.attempts >= MAX_GENERATION_SUBMISSIONS) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: new Date(entry.firstAttempt + GENERATION_WINDOW_MS),
+    }
+  }
+
+  return { allowed: true, remaining: MAX_GENERATION_SUBMISSIONS - entry.attempts }
+}
+
+/**
+ * Record a generation submission for an IP
+ * @param ip The client IP address
+ */
+export function recordGenerationSubmission(ip: string): void {
+  const now = Date.now()
+  const entry = generationSubmissionStore.get(ip)
+
+  if (!entry) {
+    generationSubmissionStore.set(ip, {
+      attempts: 1,
+      firstAttempt: now,
+      blocked: false,
+      blockedUntil: 0,
+    })
+    return
+  }
+
+  // Time window expired, start fresh
+  if (now - entry.firstAttempt > GENERATION_WINDOW_MS) {
+    generationSubmissionStore.set(ip, {
+      attempts: 1,
+      firstAttempt: now,
+      blocked: false,
+      blockedUntil: 0,
+    })
+    return
+  }
+
+  // Increment submission counter
   entry.attempts++
 }
