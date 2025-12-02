@@ -1,4 +1,7 @@
-import { step2Schema } from '@/lib/schemas/animation.schema'
+import { step2Schema, aiConsentSchema } from '@/lib/schemas/animation.schema'
+
+// Default aiConsent value for tests
+const defaultAiConsent = { enabled: false, required: false, label: '' }
 
 describe('Step2 Schema Validation', () => {
   describe('Valid data', () => {
@@ -26,6 +29,7 @@ describe('Step2 Schema Validation', () => {
             label: 'Email',
             placeholder: 'exemple@email.com',
           },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -51,6 +55,7 @@ describe('Step2 Schema Validation', () => {
             enabled: false,
             required: true,
           },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -70,6 +75,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -90,6 +96,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -107,6 +114,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -126,6 +134,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: true, required: true }, // Email enabled
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -146,6 +155,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: true, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -163,6 +173,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: true, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -183,6 +194,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true }, // Email NOT enabled
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -203,6 +215,7 @@ describe('Step2 Schema Validation', () => {
           name: { enabled: true, required: true },
           firstName: { enabled: false, required: true },
           email: { enabled: true, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -226,6 +239,7 @@ describe('Step2 Schema Validation', () => {
           },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -250,6 +264,7 @@ describe('Step2 Schema Validation', () => {
           },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -274,6 +289,7 @@ describe('Step2 Schema Validation', () => {
           },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
@@ -295,11 +311,172 @@ describe('Step2 Schema Validation', () => {
           },
           firstName: { enabled: false, required: true },
           email: { enabled: false, required: true },
+          aiConsent: defaultAiConsent,
         },
       }
 
       const result = step2Schema.safeParse(validData)
       expect(result.success).toBe(true)
+    })
+  })
+
+  // Story 3.12: AI Consent validation tests
+  describe('AI Consent (Story 3.12)', () => {
+    it('should validate aiConsent with all fields', () => {
+      const validData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: true,
+            label: '<p>J\'accepte que mes données soient utilisées par l\'IA.</p>',
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(validData)
+      expect(result.success).toBe(true)
+    })
+
+    it('should validate aiConsent with enabled=false', () => {
+      const validData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: false,
+            required: false,
+            label: '',
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(validData)
+      expect(result.success).toBe(true)
+    })
+
+    it('should validate aiConsent with HTML in label', () => {
+      const validData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: false,
+            label: '<p>J\'accepte les <a href="https://example.com/cgu">conditions d\'utilisation</a>.</p>',
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(validData)
+      expect(result.success).toBe(true)
+    })
+
+    it('should reject aiConsent label longer than 5000 characters', () => {
+      const invalidData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: false,
+            label: 'A'.repeat(5001), // 5001 characters
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.errors[0].message).toContain('5000 caractères')
+      }
+    })
+
+    it('should accept aiConsent label at max length (5000 chars)', () => {
+      const validData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: false,
+            label: 'A'.repeat(5000), // Exactly 5000 characters
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(validData)
+      expect(result.success).toBe(true)
+    })
+
+    it('should require aiConsent in baseFields', () => {
+      const invalidData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          // Missing aiConsent
+        },
+      }
+
+      const result = step2Schema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+    })
+  })
+
+  // aiConsentSchema unit tests
+  describe('aiConsentSchema unit tests', () => {
+    it('should validate a complete aiConsent object', () => {
+      const validData = {
+        enabled: true,
+        required: true,
+        label: '<p>Consent text</p>',
+      }
+
+      const result = aiConsentSchema.safeParse(validData)
+      expect(result.success).toBe(true)
+    })
+
+    it('should reject missing enabled field', () => {
+      const invalidData = {
+        required: true,
+        label: 'Test',
+      }
+
+      const result = aiConsentSchema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject missing required field', () => {
+      const invalidData = {
+        enabled: true,
+        label: 'Test',
+      }
+
+      const result = aiConsentSchema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject missing label field', () => {
+      const invalidData = {
+        enabled: true,
+        required: false,
+      }
+
+      const result = aiConsentSchema.safeParse(invalidData)
+      expect(result.success).toBe(false)
     })
   })
 })

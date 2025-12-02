@@ -256,7 +256,6 @@ describe('api-client', () => {
 
   describe('Authorization header injection', () => {
     it('should include Authorization header with Bearer token', async () => {
-      const mockToken = 'valid.jwt.token'
       const nowSeconds = Math.floor(Date.now() / 1000)
       const validTokenSeconds = nowSeconds + 5 * 60
       const payload = { userId: 'user-123', email: 'test@example.com', role: 'admin', exp: validTokenSeconds }

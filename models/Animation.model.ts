@@ -31,12 +31,22 @@ export interface IBaseFieldConfig {
 }
 
 /**
+ * AI Consent configuration (Step 2 - Story 3.12)
+ */
+export interface IAiConsent {
+  enabled: boolean // false by default
+  required: boolean // false by default - if true, participant must accept
+  label: string // HTML string from WYSIWYG editor
+}
+
+/**
  * Base fields configuration (Step 2)
  */
 export interface IBaseFields {
   name: IBaseFieldConfig
   firstName: IBaseFieldConfig
   email: IBaseFieldConfig
+  aiConsent?: IAiConsent // Story 3.12 - AI authorization toggle
 }
 
 /**
@@ -363,6 +373,22 @@ const AnimationSchema = new Schema<IAnimation>(
           type: String,
           maxlength: 100,
           default: 'exemple@email.com'
+        }
+      },
+      // Story 3.12: AI Consent toggle
+      aiConsent: {
+        enabled: {
+          type: Boolean,
+          default: false
+        },
+        required: {
+          type: Boolean,
+          default: false
+        },
+        label: {
+          type: String,
+          maxlength: [5000, 'Le label aiConsent ne peut pas dépasser 5000 caractères'],
+          default: ''
         }
       }
     },

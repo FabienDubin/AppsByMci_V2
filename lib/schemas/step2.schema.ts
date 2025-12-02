@@ -7,6 +7,18 @@ import { z } from 'zod'
 import { baseFieldConfigSchema } from './common.schema'
 
 /**
+ * AI Consent schema (Story 3.12)
+ * Toggle for AI authorization with WYSIWYG label
+ */
+export const aiConsentSchema = z.object({
+  enabled: z.boolean(),
+  required: z.boolean(),
+  label: z.string().max(5000, 'Le label ne peut pas dépasser 5000 caractères'),
+})
+
+export type AiConsent = z.infer<typeof aiConsentSchema>
+
+/**
  * Step 2 schema (Access Config + Base Fields)
  * Validation conditionnelle selon type d'accès
  */
@@ -21,6 +33,7 @@ export const step2Schema = z
       name: baseFieldConfigSchema,
       firstName: baseFieldConfigSchema,
       email: baseFieldConfigSchema,
+      aiConsent: aiConsentSchema,
     }),
   })
   .superRefine((data, ctx) => {

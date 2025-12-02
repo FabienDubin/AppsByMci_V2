@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals'
-import { validatePipelineLogic, ValidationResult } from '@/lib/utils/pipeline-validator'
+import { validatePipelineLogic } from '@/lib/utils/pipeline-validator'
 import type { PipelineBlock, InputCollection } from '@/lib/stores/wizard.store'
 
 // Helper to create a basic AI generation block

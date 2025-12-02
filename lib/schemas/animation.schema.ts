@@ -5,6 +5,7 @@
 
 import { z } from 'zod'
 import { slugRegex, baseFieldConfigSchema } from './common.schema'
+import { aiConsentSchema } from './step2.schema'
 import { inputElementSchema } from './step3.schema'
 import { pipelineBlockSchema } from './step4.schema'
 
@@ -58,6 +59,7 @@ export const updateAnimationSchema = z.object({
       name: baseFieldConfigSchema.optional(),
       firstName: baseFieldConfigSchema.optional(),
       email: baseFieldConfigSchema.optional(),
+      aiConsent: aiConsentSchema.optional(),
     })
     .optional(),
   inputCollection: z

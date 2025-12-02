@@ -23,7 +23,7 @@ const mockDatabase = database as jest.Mocked<typeof database>
 describe('PUT /api/users/me/password', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockDatabase.connectDatabase.mockResolvedValue(undefined)
+    mockDatabase.connectDatabase.mockResolvedValue({} as typeof import('mongoose'))
   })
 
   const createMockRequest = (

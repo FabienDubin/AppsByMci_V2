@@ -3,6 +3,7 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Placeholder from '@tiptap/extension-placeholder'
 import { useEffect, useState } from 'react'
 import { Bold, Italic, Link as LinkIcon, Code, Undo, Redo } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,10 @@ export function RichTextEditor({
         HTMLAttributes: {
           class: 'text-primary underline',
         },
+      }),
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty',
       }),
     ],
     content: value,
@@ -233,16 +238,15 @@ export function RichTextEditor({
         editor={editor}
         className={cn(
           'min-h-[200px] bg-background',
+          // Placeholder styling via Tiptap extension
+          '[&_.tiptap.is-editor-empty:first-child::before]:text-muted-foreground',
+          '[&_.tiptap.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_.tiptap.is-editor-empty:first-child::before]:float-left',
+          '[&_.tiptap.is-editor-empty:first-child::before]:h-0',
+          '[&_.tiptap.is-editor-empty:first-child::before]:pointer-events-none',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
       />
-
-      {/* Placeholder */}
-      {editor.isEmpty && (
-        <div className="absolute top-[56px] left-4 text-muted-foreground pointer-events-none">
-          {placeholder}
-        </div>
-      )}
 
       {/* Link Dialog */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>

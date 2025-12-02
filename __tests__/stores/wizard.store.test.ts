@@ -408,7 +408,7 @@ describe('Wizard Store - DEFAULT_EMAIL_CONFIG', () => {
   })
 
   it('should not have subject or bodyTemplate defined', () => {
-    expect(DEFAULT_EMAIL_CONFIG.subject).toBeUndefined()
-    expect(DEFAULT_EMAIL_CONFIG.bodyTemplate).toBeUndefined()
+    expect('subject' in DEFAULT_EMAIL_CONFIG).toBe(false)
+    expect('bodyTemplate' in DEFAULT_EMAIL_CONFIG).toBe(false)
   })
 })

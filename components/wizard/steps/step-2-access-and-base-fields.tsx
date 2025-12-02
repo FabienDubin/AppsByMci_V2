@@ -3,6 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { step2Schema, type Step2Data } from '@/lib/schemas/animation.schema'
+import type { AnimationData } from '@/lib/stores/wizard.store'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,11 +11,15 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Bot } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { RichTextEditor } from '@/components/email/rich-text-editor'
+
+// Type for initial data that accepts both AnimationData (optional aiConsent) and Step2Data (required aiConsent)
+type Step2InitialData = Partial<AnimationData> | Partial<Step2Data>
 
 interface Step2AccessAndBaseFieldsProps {
-  initialData?: Partial<Step2Data>
+  initialData?: Step2InitialData
   onNext: (data: Step2Data) => void | Promise<void>
   onPrev?: () => void
   isLoading?: boolean
@@ -52,6 +57,11 @@ export function Step2AccessAndBaseFields({
       label: 'Email',
       placeholder: 'exemple@email.com',
     },
+    aiConsent: {
+      enabled: false,
+      required: false,
+      label: '',
+    },
   }
 
   const {
@@ -73,6 +83,7 @@ export function Step2AccessAndBaseFields({
         name: initialData?.baseFields?.name || defaultBaseFields.name,
         firstName: initialData?.baseFields?.firstName || defaultBaseFields.firstName,
         email: initialData?.baseFields?.email || defaultBaseFields.email,
+        aiConsent: initialData?.baseFields?.aiConsent || defaultBaseFields.aiConsent,
       },
     },
   })
@@ -81,6 +92,7 @@ export function Step2AccessAndBaseFields({
   const emailEnabled = watch('baseFields.email.enabled')
   const nameEnabled = watch('baseFields.name.enabled')
   const firstNameEnabled = watch('baseFields.firstName.enabled')
+  const aiConsentEnabled = watch('baseFields.aiConsent.enabled')
   const emailDomains = watch('accessConfig.emailDomains') || []
 
   // State for CSV string representation of email domains
@@ -428,6 +440,88 @@ export function Step2AccessAndBaseFields({
               <p className="text-xs text-gray-500">
                 L'email sera utilisé pour envoyer le résultat au participant (si emails activés dans Step 5)
               </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 3: Autorisation IA (Story 3.12) */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            Autorisation IA
+          </h3>
+          <p className="text-sm text-gray-500">
+            Demander aux participants leur consentement pour l'utilisation de leurs données par l'IA
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="aiConsentEnabled" className="text-base font-medium">
+              Activer
+            </Label>
+            <Controller
+              name="baseFields.aiConsent.enabled"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  id="aiConsentEnabled"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isLoading}
+                />
+              )}
+            />
+          </div>
+
+          {aiConsentEnabled && (
+            <div className="space-y-4 pt-2">
+              {/* Toggle Requis */}
+              <div className="flex items-center space-x-2">
+                <Controller
+                  name="baseFields.aiConsent.required"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      id="aiConsentRequired"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="aiConsentRequired" className="font-normal cursor-pointer">
+                  Requis (le participant doit accepter pour continuer)
+                </Label>
+              </div>
+
+              {/* Label WYSIWYG */}
+              <div className="space-y-2">
+                <Label htmlFor="aiConsentLabel">
+                  Texte d'autorisation
+                </Label>
+                <Controller
+                  name="baseFields.aiConsent.label"
+                  control={control}
+                  render={({ field }) => (
+                    <RichTextEditor
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="Ex: J'accepte que mes données soient utilisées par l'IA pour générer mon image..."
+                      disabled={isLoading}
+                      className="min-h-[120px]"
+                    />
+                  )}
+                />
+                <p className="text-xs text-gray-500">
+                  Ce texte sera affiché aux participants. Vous pouvez ajouter des liens vers vos conditions d'utilisation.
+                </p>
+                {errors.baseFields?.aiConsent?.label && (
+                  <p className="text-sm text-red-500">{errors.baseFields.aiConsent.label.message}</p>
+                )}
+              </div>
             </div>
           )}
         </div>

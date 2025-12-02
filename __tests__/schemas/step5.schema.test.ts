@@ -4,7 +4,6 @@
  */
 
 import { emailConfigSchema, step5Schema } from '@/lib/schemas/animation.schema'
-import { ZodError } from 'zod'
 
 describe('emailConfigSchema', () => {
   describe('when enabled = false', () => {

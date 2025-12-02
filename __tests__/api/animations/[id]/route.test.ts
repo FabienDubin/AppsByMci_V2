@@ -87,7 +87,7 @@ describe('PUT /api/animations/[id]', () => {
       } as any)
 
       const request = createMockRequest(step2Data, validToken)
-      const response = await PUT(request, { params: { id: animationId } })
+      const response = await PUT(request, { params: Promise.resolve({ id: animationId }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -134,7 +134,7 @@ describe('PUT /api/animations/[id]', () => {
       } as any)
 
       const request = createMockRequest(step2Data, validToken)
-      const response = await PUT(request, { params: { id: animationId } })
+      const response = await PUT(request, { params: Promise.resolve({ id: animationId }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -170,7 +170,7 @@ describe('PUT /api/animations/[id]', () => {
       } as any)
 
       const request = createMockRequest(partialData, validToken)
-      const response = await PUT(request, { params: { id: animationId } })
+      const response = await PUT(request, { params: Promise.resolve({ id: animationId }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -215,7 +215,7 @@ describe('PUT /api/animations/[id]', () => {
       } as any)
 
       const request = createMockRequest(step2Data, validToken)
-      const response = await PUT(request, { params: { id: animationId } })
+      const response = await PUT(request, { params: Promise.resolve({ id: animationId }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)

@@ -166,7 +166,7 @@ describe('AnimationService', () => {
 
       mockAnimation.findById.mockResolvedValue(mockAnimationDoc as any)
 
-      const result = await service.updateAnimation(animationId, userId, updateData)
+      await service.updateAnimation(animationId, userId, updateData)
 
       expect(mockAnimationDoc.save).toHaveBeenCalled()
       expect(mockAnimation.findById).toHaveBeenCalledWith(animationId)

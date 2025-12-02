@@ -10,6 +10,13 @@ export interface BaseFieldConfig {
   placeholder?: string
 }
 
+// AI Consent configuration type (Story 3.12)
+export interface AiConsent {
+  enabled: boolean // false by default
+  required: boolean // false by default - if true, participant must accept
+  label: string // HTML string from WYSIWYG editor
+}
+
 // Step 3: Input Collection types
 export type InputElementType = 'selfie' | 'choice' | 'slider' | 'free-text'
 
@@ -182,6 +189,7 @@ export interface AnimationData {
     name: BaseFieldConfig
     firstName: BaseFieldConfig
     email: BaseFieldConfig
+    aiConsent?: AiConsent // Story 3.12 - AI authorization toggle
   }
   // Step 3: Input Collection (advanced inputs)
   inputCollection?: InputCollection
