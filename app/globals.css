@@ -142,3 +142,19 @@
 [data-sonner-toast] {
   padding-right: 32px !important;
 }
+
+/* Choice question pulse animation */
+@keyframes pulse-choice {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+}
+
+.animate-pulse-choice {
+  animation: pulse-choice 0.25s ease-in-out 2;
+}

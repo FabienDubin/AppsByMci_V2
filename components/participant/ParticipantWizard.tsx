@@ -9,6 +9,7 @@ import { useParticipantFormStore } from '@/lib/stores/participantForm.store'
 import { useAnimation } from '@/components/participant/ParticipantContext'
 import { BaseFieldsStep } from './steps/BaseFieldsStep'
 import { SelfieStep } from './steps/SelfieStep'
+import { QuestionStep } from './steps/QuestionStep'
 import type { IInputElement } from '@/models/Animation.model'
 
 interface ParticipantWizardProps {
@@ -103,6 +104,32 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
       }
     }
 
+    // Note: Choice questions don't need validation here because:
+    // 1. Auto-navigation only triggers AFTER user clicks an option (so answer is always set)
+    // 2. The store is updated synchronously, but React state may lag behind
+    // 3. If we need to validate, ChoiceQuestion handles it internally before calling onNext
+
+    // Validate free-text question
+    if (currentStepConfig?.type === 'free-text') {
+      const freeTextElement = animation.inputCollection?.elements?.find(
+        (el: IInputElement) => el.id === currentStepConfig.id
+      ) as IInputElement | undefined
+
+      // Check if free-text is required and empty
+      if (freeTextElement?.required !== false) {
+        const answer = formData.answers.find(
+          (a) => a.elementId === currentStepConfig.id
+        )
+        const textValue = (answer?.value as string) || ''
+        if (!textValue.trim()) {
+          const errorMessage = 'Veuillez remplir ce champ'
+          setStepError(errorMessage)
+          toast.error(errorMessage)
+          return false
+        }
+      }
+    }
+
     return true
   }
 
@@ -164,13 +191,30 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
       }
       case 'choice':
       case 'slider':
-      case 'free-text':
-        // TODO: Implement QuestionStep (Story 4.4)
+      case 'free-text': {
+        // Find the element from inputCollection
+        const questionElement = animation.inputCollection?.elements?.find(
+          (el: IInputElement) => el.id === currentStepConfig.id
+        ) as IInputElement | undefined
+
+        if (!questionElement) {
+          return (
+            <div className="text-center py-8 text-gray-500">
+              Erreur: configuration question manquante
+            </div>
+          )
+        }
+
         return (
-          <div className="text-center py-8 text-gray-500">
-            Question (à implémenter)
-          </div>
+          <QuestionStep
+            element={questionElement}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            isFirstStep={isFirstStep}
+            isLastStep={isLastStep}
+          />
         )
+      }
       default:
         return null
     }
@@ -203,33 +247,58 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
         </div>
       )}
 
-      {/* Navigation buttons - only show if not on base-fields step (which has its own buttons) */}
+      {/* Navigation buttons logic:
+          - base-fields: has its own navigation buttons
+          - choice (not last step): auto-navigation, no buttons needed (Previous is in ChoiceQuestion)
+          - choice (last step): show Submit button only
+          - other types: show Previous/Next or Submit buttons
+      */}
       {currentStepConfig?.type !== 'base-fields' && (
-        <div className="flex justify-between gap-4">
-          {!isFirstStep && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Précédent
-            </Button>
-          )}
+        <>
+          {/* For choice questions that are NOT the last step: no nav buttons (auto-nav handles it) */}
+          {/* For choice questions that ARE the last step: show Submit button */}
+          {currentStepConfig?.type === 'choice' ? (
+            isLastStep && (
+              <div className="flex justify-center gap-4 mt-4">
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                  style={{ backgroundColor: 'var(--primary-color)' }}
+                >
+                  Soumettre
+                </Button>
+              </div>
+            )
+          ) : (
+            <div className="flex justify-between gap-4">
+              {!isFirstStep && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Précédent
+                </Button>
+              )}
 
-          <Button
-            type="button"
-            onClick={handleNext}
-            disabled={isSubmitting}
-            className={isFirstStep ? 'w-full' : 'flex-1'}
-            style={{ backgroundColor: 'var(--primary-color)' }}
-          >
-            {isLastStep ? 'Soumettre' : 'Suivant'}
-            {!isLastStep && <ChevronRight className="w-4 h-4 ml-2" />}
-          </Button>
-        </div>
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={isSubmitting}
+                className={isFirstStep ? 'w-full' : 'flex-1'}
+                style={{ backgroundColor: 'var(--primary-color)' }}
+              >
+                {isLastStep ? 'Soumettre' : 'Suivant'}
+                {!isLastStep && <ChevronRight className="w-4 h-4 ml-2" />}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
