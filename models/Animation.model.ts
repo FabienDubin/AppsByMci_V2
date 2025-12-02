@@ -213,7 +213,7 @@ export interface ICustomization {
   backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
   textCard?: ITextCard // Text card overlay configuration
   theme: 'light' | 'dark' | 'auto'
-  welcomeMessage?: string // max 200 chars
+  welcomeMessage?: string // HTML string from WYSIWYG editor (Story 3.13)
   submissionMessage: string // max 100 chars
   loadingMessages: string[] // min 3, max 10
   thankYouMessage: string // max 100 chars
@@ -747,9 +747,9 @@ const AnimationSchema = new Schema<IAnimation>(
         enum: ['light', 'dark', 'auto'],
         default: 'auto'
       },
+      // Story 3.13: No character limit - welcomeMessage is now HTML from WYSIWYG editor
       welcomeMessage: {
         type: String,
-        maxlength: [200, 'Le message de bienvenue ne peut pas dépasser 200 caractères'],
         default: undefined
       },
       submissionMessage: {

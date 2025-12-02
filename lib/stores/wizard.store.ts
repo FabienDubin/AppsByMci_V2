@@ -108,7 +108,7 @@ export interface Customization {
   backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
   textCard?: TextCard // Text card overlay configuration
   theme: 'light' | 'dark' | 'auto'
-  welcomeMessage?: string // max 200 chars
+  welcomeMessage?: string // HTML string from WYSIWYG editor (Story 3.13)
   submissionMessage: string // max 100 chars, default provided
   loadingMessages: string[] // min 3, max 10
   thankYouMessage: string // max 100 chars, default provided

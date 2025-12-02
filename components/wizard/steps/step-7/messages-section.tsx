@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/email/rich-text-editor'
 import { parseLoadingMessages, getLoadingMessagesCountLabel } from '@/lib/utils/loading-messages'
 
 interface MessagesSectionProps {
@@ -70,7 +71,7 @@ export function MessagesSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            {/* Welcome Message */}
+            {/* Welcome Message - WYSIWYG Editor (Story 3.13) */}
             <FormField
               control={form.control}
               name="customization.welcomeMessage"
@@ -78,15 +79,15 @@ export function MessagesSection({
                 <FormItem>
                   <FormLabel>Message de bienvenue (optionnel)</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <RichTextEditor
                       value={field.value || ''}
+                      onChange={field.onChange}
                       placeholder="Bienvenue à notre événement !"
-                      maxLength={200}
+                      className="min-h-[120px]"
                     />
                   </FormControl>
                   <FormDescription>
-                    Affiché en haut du formulaire. Max 200 caractères.
+                    Affiché en haut du formulaire. Supporte le gras, l&apos;italique et les liens.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

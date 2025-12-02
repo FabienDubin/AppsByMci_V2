@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo } from 'react'
+import DOMPurify from 'dompurify'
 import { cn } from '@/lib/utils'
 import type { Customization } from '@/lib/stores/wizard.store'
 import { DEFAULT_TEXT_CARD } from '@/lib/stores/wizard.store'
@@ -112,6 +114,15 @@ export function CustomizationPreview({
   const cardTextColor = getCardTextColor()
   const cardMutedTextColor = isColorDark(textCard?.backgroundColor || '#FFFFFF') ? '#d1d5db' : '#6b7280'
 
+  // Sanitize welcome message HTML to prevent XSS (Story 3.13)
+  const sanitizedWelcomeMessage = useMemo(() => {
+    if (!welcomeMessage) return ''
+    return DOMPurify.sanitize(welcomeMessage, {
+      ALLOWED_TAGS: ['p', 'strong', 'em', 'a', 'br', 'span', 'h1', 'h2', 'h3'],
+      ALLOWED_ATTR: ['href', 'target', 'class'],
+    })
+  }, [welcomeMessage])
+
   return (
     <div className={cn('rounded-lg border overflow-hidden', className)}>
       {/* Preview Header */}
@@ -143,14 +154,23 @@ export function CustomizationPreview({
             />
           )}
 
-          {/* Welcome Message (outside the card) */}
-          {welcomeMessage && (
-            <h2
-              className="text-lg font-semibold"
+          {/* Welcome Message (outside the card) - Renders sanitized HTML from WYSIWYG (Story 3.13) */}
+          {sanitizedWelcomeMessage && (
+            <div
+              className={cn(
+                'prose prose-sm max-w-none',
+                // Normal paragraph text - matches card text style
+                '[&_p]:my-1 [&_p]:text-sm [&_p]:font-normal',
+                // Heading hierarchy (Story 3.13)
+                '[&_h1]:text-xl [&_h1]:font-bold [&_h1]:my-2',
+                '[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:my-1.5',
+                '[&_h3]:text-base [&_h3]:font-medium [&_h3]:my-1',
+                // Links
+                '[&_a]:text-primary [&_a]:underline'
+              )}
               style={{ color: backgroundImage || backgroundColor ? (isColorDark(backgroundColor || '#000000') ? '#ffffff' : textColor) : textColor }}
-            >
-              {welcomeMessage}
-            </h2>
+              dangerouslySetInnerHTML={{ __html: sanitizedWelcomeMessage }}
+            />
           )}
 
           {/* Main Content Card - wraps all interactive content */}

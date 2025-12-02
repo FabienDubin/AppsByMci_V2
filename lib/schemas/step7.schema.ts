@@ -57,9 +57,9 @@ export const customizationSchema = z.object({
     .optional(),
   textCard: textCardSchema.optional(),
   theme: z.enum(['light', 'dark', 'auto']),
+  // Story 3.13: No character limit - welcomeMessage is now HTML from WYSIWYG editor
   welcomeMessage: z
     .string()
-    .max(200, 'Le message de bienvenue ne peut pas dépasser 200 caractères')
     .optional(),
   submissionMessage: z
     .string()

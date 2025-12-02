@@ -138,23 +138,41 @@ describe('customizationSchema', () => {
   })
 
   describe('message validation', () => {
-    it('should reject welcomeMessage longer than 200 characters', () => {
+    // Story 3.13: welcomeMessage is now HTML from WYSIWYG editor with no character limit
+    it('should accept long welcomeMessage (HTML from WYSIWYG - Story 3.13)', () => {
       const data = {
         ...validCustomization,
-        welcomeMessage: 'a'.repeat(201),
+        welcomeMessage: '<p>' + 'a'.repeat(1000) + '</p>',
       }
 
       const result = customizationSchema.safeParse(data)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues.some((i) => i.message.includes('200'))).toBe(true)
-      }
+      expect(result.success).toBe(true)
     })
 
-    it('should accept welcomeMessage at exactly 200 characters', () => {
+    it('should accept welcomeMessage with HTML formatting (Story 3.13)', () => {
       const data = {
         ...validCustomization,
-        welcomeMessage: 'a'.repeat(200),
+        welcomeMessage: '<p><strong>Bienvenue</strong> à notre <em>événement</em> !</p><p>Cliquez <a href="https://example.com">ici</a> pour plus d\'infos.</p>',
+      }
+
+      const result = customizationSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept plain text welcomeMessage for backward compatibility (Story 3.13)', () => {
+      const data = {
+        ...validCustomization,
+        welcomeMessage: 'Bienvenue à notre événement !',
+      }
+
+      const result = customizationSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept empty welcomeMessage (optional field)', () => {
+      const data = {
+        ...validCustomization,
+        welcomeMessage: '',
       }
 
       const result = customizationSchema.safeParse(data)

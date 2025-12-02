@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useEffect, useState } from 'react'
-import { Bold, Italic, Link as LinkIcon, Code, Undo, Redo } from 'lucide-react'
+import { Bold, Italic, Link as LinkIcon, Code, Undo, Redo, Heading1, Heading2, Heading3, Type } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import {
@@ -52,7 +52,10 @@ export function RichTextEditor({
         // Disable features we don't need
         codeBlock: false,
         blockquote: false,
-        heading: false,
+        // Enable headings H1, H2, H3 for text hierarchy (Story 3.13)
+        heading: {
+          levels: [1, 2, 3],
+        },
         horizontalRule: false,
         bulletList: false,
         orderedList: false,
@@ -80,7 +83,11 @@ export function RichTextEditor({
       attributes: {
         class: cn(
           'prose prose-sm max-w-none min-h-[200px] p-4 focus:outline-none',
-          '[&_p]:my-2 [&_a]:text-primary [&_a]:underline'
+          '[&_p]:my-2 [&_a]:text-primary [&_a]:underline',
+          // Heading styles (Story 3.13)
+          '[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3',
+          '[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:my-2',
+          '[&_h3]:text-lg [&_h3]:font-medium [&_h3]:my-2'
         ),
       },
     },
@@ -155,13 +162,61 @@ export function RichTextEditor({
   return (
     <div className={cn('border rounded-md overflow-hidden', className)}>
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b bg-muted/30">
+      <div className="flex items-center gap-1 p-2 border-b bg-muted/30 flex-wrap">
+        {/* Heading buttons - Story 3.13 */}
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('heading', { level: 1 })}
+          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          disabled={disabled}
+          aria-label="Titre 1"
+          title="Titre 1"
+        >
+          <Heading1 className="h-4 w-4" />
+        </Toggle>
+
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('heading', { level: 2 })}
+          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          disabled={disabled}
+          aria-label="Titre 2"
+          title="Titre 2"
+        >
+          <Heading2 className="h-4 w-4" />
+        </Toggle>
+
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('heading', { level: 3 })}
+          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          disabled={disabled}
+          aria-label="Titre 3"
+          title="Titre 3"
+        >
+          <Heading3 className="h-4 w-4" />
+        </Toggle>
+
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('paragraph')}
+          onPressedChange={() => editor.chain().focus().setParagraph().run()}
+          disabled={disabled}
+          aria-label="Texte normal"
+          title="Texte normal"
+        >
+          <Type className="h-4 w-4" />
+        </Toggle>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
         <Toggle
           size="sm"
           pressed={editor.isActive('bold')}
           onPressedChange={() => editor.chain().focus().toggleBold().run()}
           disabled={disabled}
           aria-label="Gras"
+          title="Gras"
         >
           <Bold className="h-4 w-4" />
         </Toggle>
@@ -172,6 +227,7 @@ export function RichTextEditor({
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
           disabled={disabled}
           aria-label="Italique"
+          title="Italique"
         >
           <Italic className="h-4 w-4" />
         </Toggle>
@@ -190,6 +246,7 @@ export function RichTextEditor({
           }}
           disabled={disabled}
           aria-label="Lien"
+          title="Lien"
         >
           <LinkIcon className="h-4 w-4" />
         </Toggle>
@@ -203,6 +260,7 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().undo().run()}
           disabled={disabled || !editor.can().undo()}
           className="h-8 w-8 p-0"
+          title="Annuler"
         >
           <Undo className="h-4 w-4" />
         </Button>
@@ -214,6 +272,7 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().redo().run()}
           disabled={disabled || !editor.can().redo()}
           className="h-8 w-8 p-0"
+          title="Refaire"
         >
           <Redo className="h-4 w-4" />
         </Button>
@@ -227,6 +286,7 @@ export function RichTextEditor({
           onClick={handleOpenSource}
           disabled={disabled}
           className="gap-1.5"
+          title="Éditer HTML"
         >
           <Code className="h-4 w-4" />
           <span className="text-xs">HTML</span>

@@ -123,7 +123,8 @@ export const updateAnimationSchema = z.object({
         padding: z.number().int().min(8).max(32),
       }).optional(),
       theme: z.enum(['light', 'dark', 'auto']).optional(),
-      welcomeMessage: z.string().max(200).optional(),
+      // Story 3.13: No character limit - welcomeMessage is now HTML from WYSIWYG editor
+      welcomeMessage: z.string().optional(),
       submissionMessage: z.string().max(100).optional(),
       loadingMessages: z.array(z.string().max(100)).min(3).max(10).optional(),
       thankYouMessage: z.string().max(100).optional(),
