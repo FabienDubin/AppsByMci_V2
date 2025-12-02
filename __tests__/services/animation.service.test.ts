@@ -280,6 +280,144 @@ describe('AnimationService', () => {
     })
   })
 
+  describe('getPublishedAnimationBySlug', () => {
+    it('should return published animation by slug', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'summer-festival',
+        name: 'Summer Festival',
+        status: 'published',
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      const result = await service.getPublishedAnimationBySlug('summer-festival')
+
+      expect(result).toBeDefined()
+      expect(result.slug).toBe('summer-festival')
+      expect(mockAnimation.findOne).toHaveBeenCalledWith({ slug: 'summer-festival' })
+    })
+
+    it('should throw NOT_FOUND_3001 if animation does not exist', async () => {
+      mockAnimation.findOne.mockResolvedValue(null)
+
+      await expect(service.getPublishedAnimationBySlug('non-existent')).rejects.toThrow(
+        'Animation introuvable'
+      )
+    })
+
+    it('should throw NOT_FOUND_3001 if animation is draft', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'draft-animation',
+        name: 'Draft Animation',
+        status: 'draft',
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      await expect(service.getPublishedAnimationBySlug('draft-animation')).rejects.toThrow(
+        'Animation introuvable'
+      )
+    })
+
+    it('should throw NOT_FOUND_3001 if animation is archived', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'archived-animation',
+        name: 'Archived Animation',
+        status: 'archived',
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      await expect(service.getPublishedAnimationBySlug('archived-animation')).rejects.toThrow(
+        'Animation introuvable'
+      )
+    })
+  })
+
+  describe('validateAccessCode', () => {
+    it('should return true for valid access code', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'protected-animation',
+        status: 'published',
+        accessConfig: {
+          type: 'code',
+          code: 'VALID123',
+        },
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      const result = await service.validateAccessCode('protected-animation', 'VALID123')
+
+      expect(result).toBe(true)
+    })
+
+    it('should throw AUTH_1003 for invalid access code', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'protected-animation',
+        status: 'published',
+        accessConfig: {
+          type: 'code',
+          code: 'VALID123',
+        },
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      await expect(
+        service.validateAccessCode('protected-animation', 'WRONG_CODE')
+      ).rejects.toThrow("Code d'accès incorrect")
+    })
+
+    it('should return true if animation does not require code', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'public-animation',
+        status: 'published',
+        accessConfig: {
+          type: 'none',
+        },
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      const result = await service.validateAccessCode('public-animation', 'ANY_CODE')
+
+      expect(result).toBe(true)
+    })
+
+    it('should return true if animation uses email-domain validation', async () => {
+      const mockAnimationDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        slug: 'email-domain-animation',
+        status: 'published',
+        accessConfig: {
+          type: 'email-domain',
+          emailDomains: ['example.com'],
+        },
+      }
+
+      mockAnimation.findOne.mockResolvedValue(mockAnimationDoc as any)
+
+      const result = await service.validateAccessCode('email-domain-animation', 'ANY_CODE')
+
+      expect(result).toBe(true)
+    })
+
+    it('should throw NOT_FOUND_3001 if animation does not exist', async () => {
+      mockAnimation.findOne.mockResolvedValue(null)
+
+      await expect(
+        service.validateAccessCode('non-existent', 'CODE123')
+      ).rejects.toThrow('Animation introuvable')
+    })
+  })
+
   describe('updateAnimation with Step 2 data', () => {
     const animationId = '507f1f77bcf86cd799439015'
     const userId = '507f1f77bcf86cd799439016'

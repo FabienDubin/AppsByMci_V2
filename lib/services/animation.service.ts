@@ -374,6 +374,64 @@ export class AnimationService {
   }
 
   /**
+   * Get a published animation by slug (public access, no authentication)
+   * @param slug - The animation slug
+   * @returns Animation document if published
+   * @throws Error with code NOT_FOUND_3001 if animation not found or not published
+   */
+  async getPublishedAnimationBySlug(slug: string): Promise<IAnimation> {
+    const animation = await Animation.findOne({ slug })
+
+    if (!animation) {
+      logger.info({ slug }, 'Animation not found by slug')
+      const error = new Error('Animation introuvable')
+      ;(error as any).code = ANIMATION_ERRORS.NOT_FOUND
+      throw error
+    }
+
+    // Only return published animations
+    if (animation.status !== 'published') {
+      logger.info(
+        { slug, status: animation.status },
+        'Animation found but not published'
+      )
+      const error = new Error('Animation introuvable')
+      ;(error as any).code = ANIMATION_ERRORS.NOT_FOUND
+      throw error
+    }
+
+    return animation
+  }
+
+  /**
+   * Validate access code for an animation
+   * @param slug - The animation slug
+   * @param accessCode - The access code to validate
+   * @returns true if access code is valid
+   * @throws Error with code NOT_FOUND_3001 if animation not found
+   * @throws Error with code ACCESS_DENIED if access code is invalid
+   */
+  async validateAccessCode(slug: string, accessCode: string): Promise<boolean> {
+    const animation = await this.getPublishedAnimationBySlug(slug)
+
+    // Check if animation requires code access
+    if (animation.accessConfig?.type !== 'code') {
+      // No code required - access granted
+      return true
+    }
+
+    // Validate the access code
+    if (animation.accessConfig.code !== accessCode) {
+      logger.info({ slug }, 'Invalid access code provided')
+      const error = new Error("Code d'accès incorrect")
+      ;(error as any).code = ANIMATION_ERRORS.ACCESS_DENIED
+      throw error
+    }
+
+    return true
+  }
+
+  /**
    * Duplicate an existing animation
    * Creates a copy with new name, slug, and draft status
    * @param animationId - The animation ID to duplicate

@@ -43,8 +43,12 @@ export const customizationSchema = z.object({
   secondaryColor: z
     .string()
     .regex(hexColorRegex, 'Format de couleur invalide (ex: #71717a)'),
-  logo: z.string().url('URL invalide pour le logo').optional(),
-  backgroundImage: z.string().url('URL invalide pour l\'image de fond').optional(),
+  logo: z.string().refine((val) => !val || val.startsWith('http'), {
+    message: 'URL invalide pour le logo',
+  }).optional(),
+  backgroundImage: z.string().refine((val) => !val || val.startsWith('http'), {
+    message: "URL invalide pour l'image de fond",
+  }).optional(),
   backgroundColor: z
     .string()
     .regex(hexColorRegex, 'Format de couleur invalide')

@@ -59,7 +59,7 @@ export function Step2AccessAndBaseFields({
     },
     aiConsent: {
       enabled: false,
-      required: false,
+      required: true, // Always required when enabled
       label: '',
     },
   }
@@ -107,6 +107,13 @@ export function Step2AccessAndBaseFields({
       setShowEmailDomainAlert(false)
     }
   }, [accessType, emailEnabled, setValue])
+
+  // Auto-set aiConsent.required=true when aiConsent.enabled=true
+  useEffect(() => {
+    if (aiConsentEnabled) {
+      setValue('baseFields.aiConsent.required', true)
+    }
+  }, [aiConsentEnabled, setValue])
 
   const onSubmit = async (data: Step2Data) => {
     await onNext(data)
@@ -478,29 +485,15 @@ export function Step2AccessAndBaseFields({
 
           {aiConsentEnabled && (
             <div className="space-y-4 pt-2">
-              {/* Toggle Requis */}
-              <div className="flex items-center space-x-2">
-                <Controller
-                  name="baseFields.aiConsent.required"
-                  control={control}
-                  render={({ field }) => (
-                    <Switch
-                      id="aiConsentRequired"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-                <Label htmlFor="aiConsentRequired" className="font-normal cursor-pointer">
-                  Requis (le participant doit accepter pour continuer)
-                </Label>
-              </div>
+              {/* Info: toujours requis quand activé */}
+              <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                ⚠️ Quand activé, le participant devra obligatoirement accepter pour continuer.
+              </p>
 
               {/* Label WYSIWYG */}
               <div className="space-y-2">
                 <Label htmlFor="aiConsentLabel">
-                  Texte d'autorisation
+                  Texte d'autorisation <span className="text-red-500">*</span>
                 </Label>
                 <Controller
                   name="baseFields.aiConsent.label"

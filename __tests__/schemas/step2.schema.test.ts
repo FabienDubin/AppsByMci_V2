@@ -369,7 +369,7 @@ describe('Step2 Schema Validation', () => {
           email: { enabled: false, required: true },
           aiConsent: {
             enabled: true,
-            required: false,
+            required: true, // Always required when enabled
             label: '<p>J\'accepte les <a href="https://example.com/cgu">conditions d\'utilisation</a>.</p>',
           },
         },
@@ -388,7 +388,7 @@ describe('Step2 Schema Validation', () => {
           email: { enabled: false, required: true },
           aiConsent: {
             enabled: true,
-            required: false,
+            required: true, // Always required when enabled
             label: 'A'.repeat(5001), // 5001 characters
           },
         },
@@ -410,7 +410,7 @@ describe('Step2 Schema Validation', () => {
           email: { enabled: false, required: true },
           aiConsent: {
             enabled: true,
-            required: false,
+            required: true, // Always required when enabled
             label: 'A'.repeat(5000), // Exactly 5000 characters
           },
         },
@@ -433,6 +433,69 @@ describe('Step2 Schema Validation', () => {
 
       const result = step2Schema.safeParse(invalidData)
       expect(result.success).toBe(false)
+    })
+
+    it('should require label when aiConsent is enabled', () => {
+      const invalidData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: true,
+            label: '', // Empty label
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.errors[0].message).toContain("texte d'autorisation")
+      }
+    })
+
+    it('should reject aiConsent with only HTML tags but no text content', () => {
+      const invalidData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: true,
+            required: true,
+            label: '<p></p><br />', // HTML tags but no actual text
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.errors[0].message).toContain("texte d'autorisation")
+      }
+    })
+
+    it('should allow empty label when aiConsent is disabled', () => {
+      const validData = {
+        accessConfig: { type: 'none' as const },
+        baseFields: {
+          name: { enabled: true, required: true },
+          firstName: { enabled: false, required: true },
+          email: { enabled: false, required: true },
+          aiConsent: {
+            enabled: false,
+            required: false,
+            label: '', // Empty label is OK when disabled
+          },
+        },
+      }
+
+      const result = step2Schema.safeParse(validData)
+      expect(result.success).toBe(true)
     })
   })
 

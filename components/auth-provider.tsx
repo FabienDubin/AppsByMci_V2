@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Skip auth check on public pages
-      const publicPaths = ['/login']
+      const publicPaths = ['/login', '/a/']
       if (publicPaths.some((path) => pathname.startsWith(path))) {
         setIsInitialized(true)
         return
@@ -57,9 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push('/login')
           }
         }
-      } catch (error) {
+      } catch {
         // Session restoration failed - redirect to login if on protected page
-        const publicPaths = ['/login']
         if (!publicPaths.some((path) => pathname.startsWith(path))) {
           router.push('/login')
         }

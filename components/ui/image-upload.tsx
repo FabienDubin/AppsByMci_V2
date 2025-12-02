@@ -120,24 +120,23 @@ export function ImageUpload({
   const handleRemove = useCallback(async () => {
     if (!value) return
 
+    // Clear the value immediately for instant UI feedback
+    onChange('')
+
     try {
       const token = await getAuthToken()
       if (token) {
-        // Try to delete from server (fire and forget)
-        fetch(`${uploadEndpoint}?url=${encodeURIComponent(value)}`, {
+        // Delete from server
+        await fetch(`${uploadEndpoint}?url=${encodeURIComponent(value)}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
-        }).catch(() => {
-          // Ignore delete errors
         })
       }
     } catch {
-      // Ignore
+      // Ignore delete errors - image is already removed from UI
     }
-
-    onChange(undefined)
   }, [value, uploadEndpoint, getAuthToken, onChange])
 
   // Get file rejection errors
@@ -150,7 +149,7 @@ export function ImageUpload({
       )}
 
       {/* Image preview or upload zone */}
-      {value ? (
+      {value && value.length > 0 ? (
         <div className="relative inline-block">
           <img
             src={value}

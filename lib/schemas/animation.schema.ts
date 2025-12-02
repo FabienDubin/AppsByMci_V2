@@ -111,8 +111,12 @@ export const updateAnimationSchema = z.object({
     .object({
       primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
       secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-      logo: z.string().url().optional(),
-      backgroundImage: z.string().url().optional(),
+      logo: z.string().refine((val) => !val || val.startsWith('http'), {
+        message: 'URL invalide pour le logo',
+      }).optional(),
+      backgroundImage: z.string().refine((val) => !val || val.startsWith('http'), {
+        message: "URL invalide pour l'image de fond",
+      }).optional(),
       backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
       backgroundColorOpacity: z.number().int().min(0).max(100).optional(),
       textCard: z.object({

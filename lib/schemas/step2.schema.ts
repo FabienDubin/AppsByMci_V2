@@ -78,6 +78,19 @@ export const step2Schema = z
         })
       }
     }
+
+    // Validation conditionnelle: Si aiConsent.enabled=true → label requis
+    if (data.baseFields.aiConsent.enabled) {
+      // Strip HTML tags to check if there's actual content
+      const labelWithoutTags = data.baseFields.aiConsent.label.replace(/<[^>]*>/g, '').trim()
+      if (!labelWithoutTags) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Le texte d'autorisation est requis quand l'autorisation IA est activée",
+          path: ['baseFields', 'aiConsent', 'label'],
+        })
+      }
+    }
   })
 
 // Inferred types
