@@ -1,233 +1,64 @@
 // Animation model for event animation configurations
 import mongoose, { Schema, Document, Model } from 'mongoose'
 
+// Import types from modular files
+import type {
+  AccessConfigType,
+  IAccessConfig,
+  IBaseFieldConfig,
+  IAiConsent,
+  IBaseFields,
+  InputElementType,
+  IInputElement,
+  IInputCollection,
+  PipelineBlockType,
+  BlockName,
+  ImageUsageMode,
+  ImageSourceType,
+  IPipelineBlockConfig,
+  IPipelineBlock,
+  IAIModel,
+  IEmailConfig,
+  IDisplayConfig,
+  IPublicDisplayConfig,
+  ICustomizationLegacy,
+  ITextCard,
+  ICustomization
+} from './animation'
+
+import { DEFAULT_LOADING_MESSAGES } from './animation'
+
+// Re-export all types for backward compatibility
+export type {
+  AccessConfigType,
+  IAccessConfig,
+  IBaseFieldConfig,
+  IAiConsent,
+  IBaseFields,
+  InputElementType,
+  IInputElement,
+  IInputCollection,
+  PipelineBlockType,
+  BlockName,
+  ImageUsageMode,
+  ImageSourceType,
+  IPipelineBlockConfig,
+  IPipelineBlock,
+  IAIModel,
+  IEmailConfig,
+  IDisplayConfig,
+  IPublicDisplayConfig,
+  ICustomizationLegacy,
+  ITextCard,
+  ICustomization
+}
+
+export { DEFAULT_LOADING_MESSAGES }
+
 /**
  * Animation status types
  */
 export type AnimationStatus = 'draft' | 'published' | 'archived'
-
-/**
- * Access config types for Step 2
- */
-export type AccessConfigType = 'none' | 'code' | 'email-domain'
-
-/**
- * Access config configuration (Step 2)
- */
-export interface IAccessConfig {
-  type: AccessConfigType
-  code?: string // Required if type='code'
-  emailDomains?: string[] // Required if type='email-domain', parsed from CSV
-}
-
-/**
- * Base field configuration (Step 2)
- */
-export interface IBaseFieldConfig {
-  enabled: boolean
-  required: boolean
-  label?: string // Customizable label (default: "Nom", "Prénom", "Email")
-  placeholder?: string // Customizable placeholder
-}
-
-/**
- * AI Consent configuration (Step 2 - Story 3.12)
- */
-export interface IAiConsent {
-  enabled: boolean // false by default
-  required: boolean // false by default - if true, participant must accept
-  label: string // HTML string from WYSIWYG editor
-}
-
-/**
- * Base fields configuration (Step 2)
- */
-export interface IBaseFields {
-  name: IBaseFieldConfig
-  firstName: IBaseFieldConfig
-  email: IBaseFieldConfig
-  aiConsent?: IAiConsent // Story 3.12 - AI authorization toggle
-}
-
-/**
- * Input Element types (Step 3)
- */
-export type InputElementType = 'selfie' | 'choice' | 'slider' | 'free-text'
-
-/**
- * Input Element configuration (Step 3)
- */
-export interface IInputElement {
-  id: string // UUID
-  type: InputElementType
-  order: number // 0-indexed
-
-  // Common fields (except selfie)
-  question?: string // max 500 chars
-  required?: boolean // default true
-
-  // Choice fields
-  options?: string[] // min 2, max 6, each max 100 chars
-
-  // Slider fields
-  min?: number
-  max?: number
-  minLabel?: string // max 50 chars
-  maxLabel?: string // max 50 chars
-
-  // Free-text fields
-  maxLength?: number // 50-2000
-  placeholder?: string // max 100 chars
-}
-
-/**
- * Input Collection configuration (Step 3)
- */
-export interface IInputCollection {
-  elements: IInputElement[]
-}
-
-/**
- * Pipeline block types (Step 4)
- */
-export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing'
-export type BlockName = 'crop-resize' | 'ai-generation' | 'filters'
-
-/**
- * Image usage mode for AI generation
- */
-export type ImageUsageMode = 'none' | 'reference' | 'edit'
-
-/**
- * Image source type for AI generation
- */
-export type ImageSourceType = 'selfie' | 'url' | 'ai-block-output'
-
-/**
- * Pipeline block configuration (Step 4)
- */
-export interface IPipelineBlockConfig {
-  // Crop & Resize
-  format?: 'square' | '16:9' | '4:3' | 'original'
-  dimensions?: number // 256-2048
-
-  // IA Generation
-  modelId?: string // 'dall-e-3', 'gpt-image-1', 'imagen-4.0-generate-001'
-  promptTemplate?: string // max 2000 chars
-
-  // Image configuration (for AI generation blocks)
-  imageUsageMode?: ImageUsageMode
-  imageSource?: ImageSourceType
-  imageUrl?: string
-  sourceBlockId?: string
-
-  // Filters (future)
-  filters?: string[]
-}
-
-/**
- * Pipeline block (Step 4)
- */
-export interface IPipelineBlock {
-  id: string // UUID
-  type: PipelineBlockType
-  blockName: BlockName
-  order: number // 0-indexed
-  config: IPipelineBlockConfig
-}
-
-/**
- * AI Model configuration (Step 4)
- */
-export interface IAIModel {
-  modelId: string
-  prompt: string
-  variables: string[]
-}
-
-/**
- * Email configuration (Step 5)
- */
-export interface IEmailConfig {
-  enabled: boolean
-  subject?: string // max 200 chars
-  bodyTemplate?: string // max 10000 chars, HTML
-  senderName: string // default 'AppsByMCI'
-  senderEmail: string // default 'noreply@appsbymci.com'
-}
-
-/**
- * Display configuration (Step 6 - Legacy, kept for backward compatibility)
- */
-export interface IDisplayConfig {
-  enabled: boolean
-  layout: string
-  columns: number
-  showNames: boolean
-  refreshInterval: number
-}
-
-/**
- * Public Display configuration (Step 6 - New)
- */
-export interface IPublicDisplayConfig {
-  enabled: boolean
-  layout: 'masonry' | 'grid' | 'carousel'
-  columns?: number // Required if layout !== 'carousel'
-  autoScroll?: boolean // Auto-scroll for Masonry/Grid
-  autoScrollSpeed?: 'slow' | 'medium' | 'fast' // Scroll speed
-  showParticipantName: boolean
-  refreshInterval: number // 5-60 seconds
-}
-
-/**
- * Customization configuration (Step 7 - Legacy, kept for backward compatibility)
- */
-export interface ICustomizationLegacy {
-  colors: Record<string, string>
-  logo?: string
-  theme: string
-}
-
-/**
- * Text Card configuration (Step 7 - New)
- * Overlay card ensuring text readability over backgrounds
- */
-export interface ITextCard {
-  enabled: boolean
-  backgroundColor: string // hex #RRGGBB
-  opacity: number // 0-100
-  borderRadius: number // 0-24
-  padding: number // 8-32
-}
-
-/**
- * Customization configuration (Step 7 - New)
- */
-export interface ICustomization {
-  primaryColor: string // hex #RRGGBB
-  secondaryColor: string // hex #RRGGBB
-  logo?: string // URL Azure Blob
-  backgroundImage?: string // URL Azure Blob
-  backgroundColor?: string // hex #RRGGBB
-  backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
-  textCard?: ITextCard // Text card overlay configuration
-  theme: 'light' | 'dark' | 'auto'
-  welcomeMessage?: string // HTML string from WYSIWYG editor (Story 3.13)
-  submissionMessage: string // max 100 chars
-  loadingMessages: string[] // min 3, max 10
-  thankYouMessage: string // max 100 chars
-}
-
-/**
- * Default loading messages
- */
-export const DEFAULT_LOADING_MESSAGES = [
-  '🎨 L\'IA travaille sur ton image...',
-  '✨ Génération en cours...',
-  '🚀 Presque terminé...',
-  '⏳ Encore quelques secondes...'
-]
 
 /**
  * Animation document interface
@@ -602,12 +433,12 @@ const AnimationSchema = new Schema<IAnimation>(
       },
       bodyTemplate: {
         type: String,
-        maxlength: [10000, 'Le corps de l\'email ne peut pas dépasser 10000 caractères'],
+        maxlength: [10000, "Le corps de l'email ne peut pas dépasser 10000 caractères"],
         default: undefined
       },
       senderName: {
         type: String,
-        maxlength: [100, 'Le nom de l\'expéditeur ne peut pas dépasser 100 caractères'],
+        maxlength: [100, "Le nom de l'expéditeur ne peut pas dépasser 100 caractères"],
         default: 'AppsByMCI'
       },
       senderEmail: {
@@ -618,7 +449,7 @@ const AnimationSchema = new Schema<IAnimation>(
             if (!email) return true // Optional field
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           },
-          message: 'Format d\'email invalide'
+          message: "Format d'email invalide"
         }
       }
     },
@@ -771,7 +602,7 @@ const AnimationSchema = new Schema<IAnimation>(
       thankYouMessage: {
         type: String,
         maxlength: [100, 'Le message de remerciement ne peut pas dépasser 100 caractères'],
-        default: 'Merci d\'avoir participé !'
+        default: "Merci d'avoir participé !"
       },
       // Legacy field for backward compatibility
       colors: {
@@ -888,10 +719,10 @@ AnimationSchema.pre('save', function () {
   // Conditional validation: if enabled=true, subject and bodyTemplate required
   if (emailConfig.enabled) {
     if (!emailConfig.subject || emailConfig.subject.trim() === '') {
-      throw new Error('Le sujet de l\'email est requis quand l\'envoi est activé')
+      throw new Error("Le sujet de l'email est requis quand l'envoi est activé")
     }
     if (!emailConfig.bodyTemplate || emailConfig.bodyTemplate.trim() === '') {
-      throw new Error('Le corps de l\'email est requis quand l\'envoi est activé')
+      throw new Error("Le corps de l'email est requis quand l'envoi est activé")
     }
   }
 })
