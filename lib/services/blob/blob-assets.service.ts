@@ -7,8 +7,10 @@ import {
   CONTAINERS,
   ALLOWED_LOGO_TYPES,
   ALLOWED_BACKGROUND_TYPES,
+  ALLOWED_REFERENCE_IMAGE_TYPES,
   MAX_LOGO_SIZE,
   MAX_BACKGROUND_SIZE,
+  MAX_REFERENCE_IMAGE_SIZE,
 } from './blob.constants'
 import { getExtensionFromMimeType, extractBlobNameFromUrl } from './blob-utils'
 
@@ -107,6 +109,57 @@ class BlobAssetsService {
     const blobName = extractBlobNameFromUrl(url, CONTAINERS.BACKGROUNDS)
     if (blobName) {
       await blobCoreService.deleteFile(CONTAINERS.BACKGROUNDS, blobName)
+    }
+  }
+
+  /**
+   * Upload a reference image for AI generation block (Story 4.8)
+   * @param buffer - Buffer containing file data
+   * @param contentType - MIME type of the file (PNG, JPEG, WebP)
+   * @param animationId - Animation ID for organizing files
+   * @returns Object with URL and filename
+   */
+  async uploadReferenceImage(
+    buffer: Buffer,
+    contentType: string,
+    animationId: string
+  ): Promise<{ url: string; filename: string }> {
+    // Validate file size
+    if (buffer.length > MAX_REFERENCE_IMAGE_SIZE) {
+      throw new Error(`L'image de référence ne doit pas dépasser ${MAX_REFERENCE_IMAGE_SIZE / (1024 * 1024)} MB`)
+    }
+
+    // Validate content type
+    if (!ALLOWED_REFERENCE_IMAGE_TYPES.includes(contentType as (typeof ALLOWED_REFERENCE_IMAGE_TYPES)[number])) {
+      throw new Error(`Format de fichier non supporté. Formats acceptés: PNG, JPEG, WebP`)
+    }
+
+    // Generate unique blob name in the path: uploads/reference-images/{animationId}/{uuid}.{ext}
+    const uuid = crypto.randomUUID()
+    const extension = getExtensionFromMimeType(contentType)
+    const filename = `${uuid}.${extension}`
+    const blobName = `reference-images/${animationId}/${filename}`
+
+    // Upload file to UPLOADS container (private with SAS access)
+    const result = await blobCoreService.uploadFile(CONTAINERS.UPLOADS, blobName, buffer, {
+      contentType,
+      metadata: { animationId, uploadedAt: new Date().toISOString() },
+    })
+
+    logger.info({ msg: 'Reference image uploaded', animationId, blobName })
+
+    return { url: result.url, filename }
+  }
+
+  /**
+   * Delete a reference image from Azure Blob Storage
+   * @param url - URL of the reference image to delete
+   */
+  async deleteReferenceImage(url: string): Promise<void> {
+    const blobName = extractBlobNameFromUrl(url, CONTAINERS.UPLOADS)
+    if (blobName) {
+      await blobCoreService.deleteFile(CONTAINERS.UPLOADS, blobName)
+      logger.info({ msg: 'Reference image deleted', blobName })
     }
   }
 }

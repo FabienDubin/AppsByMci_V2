@@ -26,6 +26,7 @@ export const AI_MODELS: AIModel[] = [
       supportedModes: ['none', 'reference', 'edit'],  // All modes supported
       supportsEdit: true,
       maxSize: 1536,
+      supportedAspectRatios: ['1:1', '2:3', '3:2'],  // OpenAI: 1024x1024, 1024x1536, 1536x1024
     },
   },
   {
@@ -37,6 +38,7 @@ export const AI_MODELS: AIModel[] = [
       supportedModes: ['none', 'reference'],  // Supports reference images via inline_data
       supportsEdit: false,
       maxSize: 2048,
+      supportedAspectRatios: ['1:1', '9:16', '16:9'],  // Gemini supports these ratios
     },
   },
 ]

@@ -72,12 +72,27 @@ export type ImageUsageMode =
 export type ImageSourceType =
   | 'selfie'           // Selfie uploaded by participant
   | 'url'              // External URL provided by user during config
+  | 'upload'           // Image uploaded during config (Azure Blob Storage)
   | 'ai-block-output'  // Output from a previous AI block in the pipeline
+
+// Aspect ratio type for AI generation
+export type AspectRatio = '1:1' | '9:16' | '16:9' | '2:3' | '3:2'
+
+// Reference image configuration for AI generation blocks (Story 4.8)
+export interface ReferenceImage {
+  id: string              // UUID
+  name: string            // User-defined name (e.g., "selfie", "logo", "fond")
+  source: ImageSourceType // Source type
+  url?: string            // URL if source = 'url' or 'upload'
+  sourceBlockId?: string  // Block ID if source = 'ai-block-output'
+  order: number           // Position (1, 2, 3...)
+}
 
 export interface AICapabilities {
   supportedModes: ImageUsageMode[]  // Modes supported by this model
   supportsEdit: boolean
   maxSize: number // Max pixels (1024 for most models)
+  supportedAspectRatios: AspectRatio[] // Supported aspect ratios for this model (Story 4.8)
 }
 
 export interface AIModel {

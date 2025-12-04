@@ -22,11 +22,17 @@ export const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'imag
 export const ALLOWED_BACKGROUND_TYPES = ['image/png', 'image/jpeg', 'image/jpg'] as const
 
 /**
+ * Allowed MIME types for reference image uploads (Story 4.8)
+ */
+export const ALLOWED_REFERENCE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'] as const
+
+/**
  * Maximum file sizes
  */
 export const MAX_LOGO_SIZE = 2 * 1024 * 1024 // 2 MB
 export const MAX_BACKGROUND_SIZE = 5 * 1024 * 1024 // 5 MB
 export const MAX_SELFIE_SIZE = 10 * 1024 * 1024 // 10 MB
+export const MAX_REFERENCE_IMAGE_SIZE = 10 * 1024 * 1024 // 10 MB (Story 4.8)
 
 /**
  * MIME type to file extension mapping
@@ -36,4 +42,5 @@ export const MIME_TO_EXTENSION: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
   'image/svg+xml': 'svg',
+  'image/webp': 'webp',
 }

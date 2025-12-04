@@ -103,6 +103,61 @@ export function validatePipelineLogic(
       }
     }
 
+    // Validation 6: Reference images validation (Story 4.8)
+    const { referenceImages } = block.config
+    if (referenceImages && referenceImages.length > 0) {
+      for (const refImg of referenceImages) {
+        // 6a: If reference image uses selfie source, check selfie is configured
+        if (refImg.source === 'selfie' && !hasSelfie) {
+          return {
+            type: 'error',
+            message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' utilise le selfie, mais aucun selfie n'est collecté (Step 3).`,
+          }
+        }
+
+        // 6b: If reference image uses URL source, check URL is provided
+        if (refImg.source === 'url' && !refImg.url) {
+          return {
+            type: 'error',
+            message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' utilise une URL, mais aucune URL n'est fournie.`,
+          }
+        }
+
+        // 6c: If reference image uses upload source, check URL is provided (uploaded URL)
+        if (refImg.source === 'upload' && !refImg.url) {
+          return {
+            type: 'error',
+            message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' n'a pas été uploadée.`,
+          }
+        }
+
+        // 6d: If reference image uses ai-block-output, check source block exists and is before
+        if (refImg.source === 'ai-block-output') {
+          if (!refImg.sourceBlockId) {
+            return {
+              type: 'error',
+              message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' n'a pas de bloc source sélectionné.`,
+            }
+          }
+
+          const refSourceBlock = pipeline.find((b) => b.id === refImg.sourceBlockId)
+          if (!refSourceBlock) {
+            return {
+              type: 'error',
+              message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' référence un bloc IA source qui n'existe pas.`,
+            }
+          }
+
+          if (refSourceBlock.order >= block.order) {
+            return {
+              type: 'error',
+              message: `❌ L'image de référence '${refImg.name}' du bloc '${model.name}' référence un bloc IA source situé après lui dans le pipeline.`,
+            }
+          }
+        }
+      }
+    }
+
     // Info: If model only supports 'none' and is placed after another AI block
     if (model.capabilities.supportedModes.length === 1 && model.capabilities.supportedModes[0] === 'none') {
       const hasPreviousAIBlock = aiBlocks.some((b) => b.order < block.order)

@@ -70,10 +70,13 @@ class AnimationMutationService {
       await animationValidationService.validateSlugUnique(data.slug, animationId)
     }
 
-    // Update animation fields using set() for proper Mongoose change tracking
+    // Separate pipeline from other fields - pipeline needs special handling
+    const { pipeline: pipelineData, ...otherData } = data
+
+    // Update non-pipeline fields using set() for proper Mongoose change tracking
     // For nested objects (publicDisplayConfig, customization), we need to merge
     // with existing values to preserve fields not being updated
-    for (const [key, value] of Object.entries(data)) {
+    for (const [key, value] of Object.entries(otherData)) {
       if (key === 'publicDisplayConfig' && value && typeof value === 'object') {
         // Merge with existing publicDisplayConfig
         const existing = animation.publicDisplayConfig || {}
@@ -99,14 +102,39 @@ class AnimationMutationService {
     }
 
     // Mark nested paths as modified to ensure Mongoose saves them
-    if (data.publicDisplayConfig) {
+    if (otherData.publicDisplayConfig) {
       animation.markModified('publicDisplayConfig')
     }
-    if (data.customization) {
+    if (otherData.customization) {
       animation.markModified('customization')
     }
 
-    await animation.save()
+    // Save non-pipeline changes first
+    if (Object.keys(otherData).length > 0) {
+      await animation.save()
+    }
+
+    // Handle pipeline separately using findByIdAndUpdate with $set
+    // This bypasses Mongoose schema validation issues with deeply nested objects
+    if (pipelineData && Array.isArray(pipelineData)) {
+      // Use updateOne with $set to directly set the pipeline array
+      // This preserves nested objects like config.referenceImages and config.aspectRatio
+      await Animation.updateOne(
+        { _id: animationId },
+        { $set: { pipeline: pipelineData } }
+      )
+
+      // Reload the animation to get the updated pipeline
+      const updatedAnimation = await Animation.findById(animationId)
+      if (updatedAnimation) {
+        logger.info(
+          { animationId, userId, updatedFields: Object.keys(data) },
+          'Animation updated successfully'
+        )
+
+        return updatedAnimation
+      }
+    }
 
     logger.info(
       { animationId, userId, updatedFields: Object.keys(data) },

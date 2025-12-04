@@ -359,7 +359,7 @@ const AnimationSchema = new Schema<IAnimation>(
               maxlength: [2000, 'Prompt template cannot exceed 2000 characters'],
               default: undefined
             },
-            // Image configuration (for AI generation blocks)
+            // Image configuration (for AI generation blocks) - Legacy single image
             imageUsageMode: {
               type: String,
               enum: ['none', 'reference', 'edit'],
@@ -367,7 +367,7 @@ const AnimationSchema = new Schema<IAnimation>(
             },
             imageSource: {
               type: String,
-              enum: ['selfie', 'url', 'ai-block-output'],
+              enum: ['selfie', 'url', 'upload', 'ai-block-output'],
               default: undefined
             },
             imageUrl: {
@@ -376,6 +376,30 @@ const AnimationSchema = new Schema<IAnimation>(
             },
             sourceBlockId: {
               type: String,
+              default: undefined
+            },
+            // Aspect ratio configuration (Story 4.8)
+            aspectRatio: {
+              type: String,
+              enum: ['1:1', '9:16', '16:9', '2:3', '3:2'],
+              default: undefined
+            },
+            // Multi-reference images configuration (Story 4.8)
+            referenceImages: {
+              type: [
+                {
+                  id: { type: String, required: true },
+                  name: { type: String, required: true, maxlength: 50 },
+                  source: {
+                    type: String,
+                    enum: ['selfie', 'url', 'upload', 'ai-block-output'],
+                    required: true
+                  },
+                  url: { type: String, default: undefined },
+                  sourceBlockId: { type: String, default: undefined },
+                  order: { type: Number, required: true, min: 1 }
+                }
+              ],
               default: undefined
             },
             // Filters (future)

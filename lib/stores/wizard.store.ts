@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ImageUsageMode, ImageSourceType } from '@/lib/types'
+import type { ImageUsageMode, ImageSourceType, ReferenceImage, AspectRatio } from '@/lib/types'
 
 // Base field configuration type
 export interface BaseFieldConfig {
@@ -59,8 +59,10 @@ export interface PipelineBlockConfig {
   // AI Generation
   modelId?: string // 'gpt-image-1', 'gemini-2.5-flash-image'
   promptTemplate?: string // max 2000 chars
+  aspectRatio?: AspectRatio // '1:1', '9:16', '16:9', '2:3', '3:2' (Story 4.8)
+  referenceImages?: ReferenceImage[] // Multi-image references (Story 4.8)
 
-  // Image configuration (for AI generation blocks)
+  // Legacy image configuration (deprecated - use referenceImages instead)
   imageUsageMode?: ImageUsageMode    // 'none' | 'reference' | 'edit'
   imageSource?: ImageSourceType       // 'selfie' | 'url' | 'ai-block-output'
   imageUrl?: string                   // URL if imageSource === 'url'

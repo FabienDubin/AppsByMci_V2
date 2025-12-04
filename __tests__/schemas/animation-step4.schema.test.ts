@@ -354,6 +354,267 @@ describe('Step 4 Schemas - Pipeline', () => {
         const result = pipelineBlockSchema.safeParse(block)
         expect(result.success).toBe(false)
       })
+
+      // Story 4.8: Multi-reference images tests
+      describe('referenceImages (Story 4.8)', () => {
+        it('should validate ai-generation block with referenceImages array', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Create portrait using {selfie}',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'selfie',
+                  source: 'selfie' as const,
+                  order: 1,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(true)
+        })
+
+        it('should validate ai-generation block with multiple referenceImages', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Combine {selfie} with {background}',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'selfie',
+                  source: 'selfie' as const,
+                  order: 1,
+                },
+                {
+                  id: crypto.randomUUID(),
+                  name: 'background',
+                  source: 'upload' as const,
+                  url: 'https://example.com/bg.jpg',
+                  order: 2,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(true)
+        })
+
+        it('should validate referenceImage with ai-block-output source', () => {
+          const sourceBlockId = crypto.randomUUID()
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 1,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Edit {previous}',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'previous',
+                  source: 'ai-block-output' as const,
+                  sourceBlockId,
+                  order: 1,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(true)
+        })
+
+        it('should reject referenceImage with invalid source', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Test',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'test',
+                  source: 'invalid' as any,
+                  order: 1,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(false)
+        })
+
+        it('should reject referenceImage with name > 50 chars', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Test',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'a'.repeat(51),
+                  source: 'selfie' as const,
+                  order: 1,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(false)
+        })
+
+        it('should reject referenceImage with order < 1', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Test',
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'selfie',
+                  source: 'selfie' as const,
+                  order: 0,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(false)
+        })
+
+        it('should reject more than 5 referenceImages', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Test',
+              referenceImages: Array.from({ length: 6 }, (_, i) => ({
+                id: crypto.randomUUID(),
+                name: `image${i}`,
+                source: 'upload' as const,
+                url: `https://example.com/img${i}.jpg`,
+                order: i + 1,
+              })),
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(false)
+        })
+      })
+
+      // Story 4.8: Aspect ratio tests
+      describe('aspectRatio (Story 4.8)', () => {
+        it('should validate ai-generation block with aspectRatio 1:1', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Create square image',
+              aspectRatio: '1:1' as const,
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(true)
+        })
+
+        it('should validate all supported aspect ratios', () => {
+          const aspectRatios = ['1:1', '9:16', '16:9', '2:3', '3:2'] as const
+          aspectRatios.forEach((aspectRatio) => {
+            const block = {
+              id: crypto.randomUUID(),
+              type: 'ai-generation' as const,
+              blockName: 'ai-generation' as const,
+              order: 0,
+              config: {
+                modelId: 'gpt-image-1',
+                promptTemplate: 'Test',
+                aspectRatio,
+              },
+            }
+
+            const result = pipelineBlockSchema.safeParse(block)
+            expect(result.success).toBe(true)
+          })
+        })
+
+        it('should reject invalid aspectRatio', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Test',
+              aspectRatio: '4:5' as any,
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(false)
+        })
+
+        it('should validate ai-generation block with both aspectRatio and referenceImages', () => {
+          const block = {
+            id: crypto.randomUUID(),
+            type: 'ai-generation' as const,
+            blockName: 'ai-generation' as const,
+            order: 0,
+            config: {
+              modelId: 'gpt-image-1',
+              promptTemplate: 'Create portrait from {selfie}',
+              aspectRatio: '9:16' as const,
+              referenceImages: [
+                {
+                  id: crypto.randomUUID(),
+                  name: 'selfie',
+                  source: 'selfie' as const,
+                  order: 1,
+                },
+              ],
+            },
+          }
+
+          const result = pipelineBlockSchema.safeParse(block)
+          expect(result.success).toBe(true)
+        })
+      })
     })
 
     describe('filters blocks', () => {

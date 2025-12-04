@@ -109,6 +109,7 @@ export function PipelineCanvas() {
     const updated = pipeline.map((block) =>
       block.id === configModalBlockId ? { ...block, config } : block
     )
+
     updateData({ pipeline: updated })
     setConfigModalType(null)
     setConfigModalBlockId(null)

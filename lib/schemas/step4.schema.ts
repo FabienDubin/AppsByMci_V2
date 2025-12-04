@@ -6,6 +6,28 @@
 import { z } from 'zod'
 
 /**
+ * Reference image schema (Story 4.8)
+ * Validates individual reference image configuration
+ */
+const referenceImageSchema = z.object({
+  id: z.string().uuid('ID must be a valid UUID'),
+  name: z
+    .string()
+    .min(1, 'Name is required')
+    .max(50, 'Name cannot exceed 50 characters')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Name must contain only alphanumeric characters and underscore'),
+  source: z.enum(['selfie', 'url', 'upload', 'ai-block-output']),
+  url: z.string().url('URL invalide').optional(),
+  sourceBlockId: z.string().uuid('Block ID must be a valid UUID').optional(),
+  order: z.number().int().min(1, 'Order must be >= 1'),
+})
+
+/**
+ * Aspect ratio enum
+ */
+const aspectRatioSchema = z.enum(['1:1', '9:16', '16:9', '2:3', '3:2'])
+
+/**
  * Pipeline block schema (Step 4)
  */
 export const pipelineBlockSchema = z
@@ -32,11 +54,17 @@ export const pipelineBlockSchema = z
         .max(2000, 'Prompt template cannot exceed 2000 characters')
         .optional(),
 
-      // Image configuration (for AI generation blocks)
+      // Image configuration (for AI generation blocks) - Legacy single image
       imageUsageMode: z.enum(['none', 'reference', 'edit']).optional(),
-      imageSource: z.enum(['selfie', 'url', 'ai-block-output']).optional(),
+      imageSource: z.enum(['selfie', 'url', 'upload', 'ai-block-output']).optional(),
       imageUrl: z.string().url('URL invalide').optional(),
       sourceBlockId: z.string().uuid('Block ID must be a valid UUID').optional(),
+
+      // Aspect ratio configuration (Story 4.8)
+      aspectRatio: aspectRatioSchema.optional(),
+
+      // Multi-reference images configuration (Story 4.8)
+      referenceImages: z.array(referenceImageSchema).max(5, 'Maximum 5 reference images').optional(),
 
       // Filters fields (future)
       filters: z.array(z.string()).optional(),

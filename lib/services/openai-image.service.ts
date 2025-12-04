@@ -14,9 +14,21 @@ export interface GenerateImageOptions {
 
 /**
  * Image edit options for GPT Image 1
+ * Supports aspectRatio for convenience (will be mapped to size)
  */
 export interface EditImageOptions {
   size?: '1024x1024' | '1536x1024' | '1024x1536'
+  aspectRatio?: '1:1' | '2:3' | '3:2'
+}
+
+/**
+ * Mapping from aspect ratio to OpenAI image size
+ * AC3: '1:1' → '1024x1024', '2:3' → '1024x1536', '3:2' → '1536x1024'
+ */
+const OPENAI_ASPECT_RATIO_MAP: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
+  '1:1': '1024x1024',
+  '2:3': '1024x1536',
+  '3:2': '1536x1024',
 }
 
 /**
@@ -177,34 +189,49 @@ export const openaiImageService = {
 
   /**
    * Edit an image using GPT Image 1 (image-to-image)
+   * Supports multiple reference images (AC3)
    *
-   * @param imageBuffer - Source image as Buffer
+   * @param images - Source images as Buffer array (1 or more images)
    * @param prompt - Text prompt describing the desired edit
-   * @param options - Edit options
+   * @param options - Edit options including aspectRatio
    * @returns Buffer containing the edited image
    *
    * @example
    * ```ts
+   * // Single image (backward compatible)
    * const editedImage = await openaiImageService.editImage(
-   *   selfieBuffer,
+   *   [selfieBuffer],
    *   'Transform this photo into a cartoon style',
-   *   { size: '1024x1024' }
+   *   { aspectRatio: '1:1' }
+   * )
+   *
+   * // Multi-images
+   * const editedImage = await openaiImageService.editImage(
+   *   [selfieBuffer, logoBuffer, backgroundBuffer],
+   *   'Combine Image 1 with Image 2 logo and Image 3 background',
+   *   { aspectRatio: '9:16' }
    * )
    * ```
    */
   async editImage(
-    imageBuffer: Buffer,
+    images: Buffer[],
     prompt: string,
     options: EditImageOptions = {}
   ): Promise<Buffer> {
     const apiKey = getApiKey()
-    const { size = '1024x1024' } = options
+
+    // Determine size from aspectRatio or direct size parameter
+    const size = options.aspectRatio
+      ? OPENAI_ASPECT_RATIO_MAP[options.aspectRatio] || '1024x1024'
+      : options.size || '1024x1024'
 
     logger.info({
       model: 'gpt-image-1',
       promptLength: prompt.length,
       size,
-      imageSize: imageBuffer.length,
+      aspectRatio: options.aspectRatio,
+      imageCount: images.length,
+      imageSizes: images.map(img => img.length),
     }, 'Starting GPT Image 1 edit')
 
     const startTime = Date.now()
@@ -216,14 +243,16 @@ export const openaiImageService = {
     formData.append('size', size)
     formData.append('n', '1')
 
-    // Add image as file
-    // Convert Buffer to ArrayBuffer for Blob compatibility
-    const arrayBuffer = imageBuffer.buffer.slice(
-      imageBuffer.byteOffset,
-      imageBuffer.byteOffset + imageBuffer.byteLength
-    ) as ArrayBuffer
-    const imageBlob = new Blob([arrayBuffer], { type: 'image/png' })
-    formData.append('image', imageBlob, 'image.png')
+    // Add images as files (multiple images for multi-reference)
+    // GPT Image 1 accepts multiple images via the 'image' field
+    images.forEach((imageBuffer, index) => {
+      const arrayBuffer = imageBuffer.buffer.slice(
+        imageBuffer.byteOffset,
+        imageBuffer.byteOffset + imageBuffer.byteLength
+      ) as ArrayBuffer
+      const imageBlob = new Blob([arrayBuffer], { type: 'image/png' })
+      formData.append('image', imageBlob, `image_${index}.png`)
+    })
 
     const response = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
@@ -255,6 +284,7 @@ export const openaiImageService = {
       model: 'gpt-image-1',
       duration: `${duration}ms`,
       imageSize: resultBuffer.length,
+      imageCount: images.length,
     }, 'GPT Image 1 edit completed successfully')
 
     return resultBuffer

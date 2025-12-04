@@ -12,7 +12,7 @@ const createAIBlock = (
   blockName: 'ai-generation',
   order,
   config: {
-    modelId: 'dall-e-3',
+    modelId: 'gpt-image-1', // Updated from dall-e-3 (removed)
     promptTemplate: 'Test prompt',
     ...overrides,
   },
@@ -153,7 +153,7 @@ describe('Pipeline Validator', () => {
           blockName: 'ai-generation',
           order: 0,
           config: {
-            modelId: 'dall-e-3',
+            modelId: 'gemini-2.5-flash-image',
             promptTemplate: 'Generate image',
             imageUsageMode: 'none',
           },
@@ -295,7 +295,7 @@ describe('Pipeline Validator', () => {
           blockName: 'ai-generation',
           order: 1,
           config: {
-            modelId: 'dall-e-3',
+            modelId: 'gemini-2.5-flash-image',
             promptTemplate: 'Generate',
             imageUsageMode: 'none',
           },
@@ -317,7 +317,7 @@ describe('Pipeline Validator', () => {
           blockName: 'ai-generation',
           order: 0,
           config: {
-            modelId: 'dall-e-3',
+            modelId: 'gemini-2.5-flash-image',
             promptTemplate: 'Generate',
             imageUsageMode: 'none',
           },
@@ -358,11 +358,11 @@ describe('Pipeline Validator', () => {
     })
 
     it('should return error when model does not support the imageUsageMode', () => {
-      // dall-e-3 only supports 'none'
+      // gemini-2.5-flash-image only supports 'none' and 'reference', not 'edit'
       const pipeline: PipelineBlock[] = [
         createAIBlock(0, {
-          modelId: 'dall-e-3',
-          imageUsageMode: 'edit', // dall-e-3 doesn't support edit
+          modelId: 'gemini-2.5-flash-image',
+          imageUsageMode: 'edit', // gemini doesn't support edit
           imageSource: 'selfie',
         }),
       ]
@@ -374,60 +374,39 @@ describe('Pipeline Validator', () => {
       }
     })
 
-    it('should return error when trying to use reference mode on model that only supports none', () => {
+    it('should return valid when model supports the imageUsageMode', () => {
+      // gemini-2.5-flash-image supports 'reference'
       const pipeline: PipelineBlock[] = [
         createAIBlock(0, {
-          modelId: 'dall-e-3',
+          modelId: 'gemini-2.5-flash-image',
           imageUsageMode: 'reference',
           imageSource: 'url',
           imageUrl: 'https://example.com/image.jpg',
         }),
       ]
       const result = validatePipelineLogic(pipeline)
-      expect(result.type).toBe('error')
+      expect(result.type).toBe('valid')
     })
   })
 
-  describe('Info messages - Text-to-image after other AI blocks', () => {
-    it('should return info when DALL-E 3 is placed after another AI block', () => {
+  // Note: "Info messages - Text-to-image after other AI blocks" tests were removed
+  // because dall-e-3 has been removed and all current models support image inputs.
+  // The info message logic remains in the validator for future text-to-image-only models.
+
+  describe('Multiple AI blocks - Valid scenarios', () => {
+    it('should return valid when multiple AI blocks are correctly configured', () => {
       const pipeline: PipelineBlock[] = [
         createAIBlock(0, { modelId: 'gpt-image-1', imageUsageMode: 'none' }),
-        createAIBlock(1, { modelId: 'dall-e-3', imageUsageMode: 'none' }),
+        createAIBlock(1, { modelId: 'gemini-2.5-flash-image', imageUsageMode: 'none' }),
       ]
       const result = validatePipelineLogic(pipeline)
-      expect(result.type).toBe('info')
-      if (result.type === 'info') {
-        expect(result.message).toContain('from scratch')
-        expect(result.message).toContain('ignorée')
-      }
+      expect(result.type).toBe('valid')
     })
 
-    it('should return info when text-to-image model ignores previous AI output', () => {
-      const firstBlockId = crypto.randomUUID()
-      const pipeline: PipelineBlock[] = [
-        {
-          id: firstBlockId,
-          type: 'ai-generation',
-          blockName: 'ai-generation',
-          order: 0,
-          config: {
-            modelId: 'gpt-image-1',
-            promptTemplate: 'Edit something',
-            imageUsageMode: 'edit',
-            imageSource: 'url',
-            imageUrl: 'https://example.com/img.jpg',
-          },
-        },
-        createAIBlock(1, { modelId: 'dall-e-3' }), // Will ignore previous output
-      ]
-      const result = validatePipelineLogic(pipeline)
-      expect(result.type).toBe('info')
-    })
-
-    it('should return valid (not info) for DALL-E 3 as first/only AI block', () => {
+    it('should return valid for single AI block in pipeline', () => {
       const pipeline: PipelineBlock[] = [
         createCropBlock(0),
-        createAIBlock(1, { modelId: 'dall-e-3' }),
+        createAIBlock(1, { modelId: 'gpt-image-1' }),
         createFiltersBlock(2),
       ]
       const result = validatePipelineLogic(pipeline)
@@ -436,7 +415,7 @@ describe('Pipeline Validator', () => {
   })
 
   describe('Multiple AI blocks scenarios', () => {
-    it('should validate chain: DALL-E 3 → GPT Image Edit (using previous output)', () => {
+    it('should validate chain: Gemini → GPT Image Edit (using previous output)', () => {
       const firstBlockId = crypto.randomUUID()
       const pipeline: PipelineBlock[] = [
         {
@@ -445,7 +424,7 @@ describe('Pipeline Validator', () => {
           blockName: 'ai-generation',
           order: 0,
           config: {
-            modelId: 'dall-e-3',
+            modelId: 'gemini-2.5-flash-image',
             promptTemplate: 'Generate avatar',
             imageUsageMode: 'none',
           },
@@ -480,7 +459,7 @@ describe('Pipeline Validator', () => {
           blockName: 'ai-generation',
           order: 0,
           config: {
-            modelId: 'dall-e-3',
+            modelId: 'gemini-2.5-flash-image',
             promptTemplate: 'Step 1',
             imageUsageMode: 'none',
           },

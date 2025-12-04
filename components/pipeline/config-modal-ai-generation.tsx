@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { AlertTriangle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -28,12 +29,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PipelineBlockConfig, useWizardStore } from '@/lib/stores/wizard.store'
-import { AIModel, ImageUsageMode, ImageSourceType } from '@/lib/types'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PipelineBlockConfig, useWizardStore, PipelineBlock } from '@/lib/stores/wizard.store'
+import { AIModel, ReferenceImage, AspectRatio } from '@/lib/types'
 import { AI_MODELS } from '@/lib/ai-models'
+import { ReferenceImageList } from './ReferenceImageList'
 
 // Validation schema for AI Generation block
 const aiGenerationConfigSchema = z.object({
@@ -42,11 +44,18 @@ const aiGenerationConfigSchema = z.object({
     .string()
     .min(1, 'Le prompt template est requis')
     .max(2000, 'Le prompt ne peut pas dépasser 2000 caractères'),
-  imageUsageMode: z.enum(['none', 'reference', 'edit']),
-  imageSource: z.enum(['selfie', 'url', 'ai-block-output']).optional(),
-  imageUrl: z.string().url('URL invalide').optional().or(z.literal('')),
-  sourceBlockId: z.string().optional(),
+  aspectRatio: z.enum(['1:1', '9:16', '16:9', '2:3', '3:2']).optional(),
+  // referenceImages is managed separately (not in form but in state)
 })
+
+// Available aspect ratio options with labels
+const ASPECT_RATIO_OPTIONS: { value: AspectRatio; label: string }[] = [
+  { value: '1:1', label: '1:1 (Carré)' },
+  { value: '9:16', label: '9:16 (Portrait)' },
+  { value: '16:9', label: '16:9 (Paysage)' },
+  { value: '2:3', label: '2:3 (Portrait)' },
+  { value: '3:2', label: '3:2 (Paysage)' },
+]
 
 type AIGenerationConfigFormData = z.infer<typeof aiGenerationConfigSchema>
 
@@ -76,22 +85,23 @@ export function ConfigModalAIGeneration({
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // State for reference images (managed outside form for better UX)
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>(
+    initialConfig?.referenceImages || []
+  )
+
   const form = useForm<AIGenerationConfigFormData>({
     resolver: zodResolver(aiGenerationConfigSchema),
     defaultValues: {
       modelId: initialConfig?.modelId || '',
       promptTemplate: initialConfig?.promptTemplate || '',
-      imageUsageMode: (initialConfig?.imageUsageMode as ImageUsageMode) || 'none',
-      imageSource: initialConfig?.imageSource as ImageSourceType | undefined,
-      imageUrl: initialConfig?.imageUrl || '',
-      sourceBlockId: initialConfig?.sourceBlockId || '',
+      aspectRatio: initialConfig?.aspectRatio as AspectRatio | undefined,
     },
+    mode: 'onSubmit', // Only validate on submit, not on change/blur
   })
 
   const selectedModelId = form.watch('modelId')
   const selectedModel = aiModels.find((m) => m.id === selectedModelId)
-  const imageUsageMode = form.watch('imageUsageMode')
-  const imageSource = form.watch('imageSource')
 
   // Check if selfie is configured in Step 3 input collection
   const { animationData } = useWizardStore()
@@ -102,7 +112,34 @@ export function ConfigModalAIGeneration({
   const pipeline = animationData.pipeline || []
   const previousAIBlocks = pipeline.filter(
     (b) => b.type === 'ai-generation' && b.id !== currentBlockId
-  )
+  ) as PipelineBlock[]
+
+  // Get animation ID for image uploads
+  const animationId = animationData.id || 'temp-animation'
+
+  // Computed: all available variables including reference images (AC10)
+  const allAvailableVariables = useMemo(() => {
+    const imageVariables = referenceImages.map((img) => `{${img.name}}`)
+    return [...availableVariables, ...imageVariables]
+  }, [availableVariables, referenceImages])
+
+  // Computed: get variables used in prompt
+  const promptTemplate = form.watch('promptTemplate')
+  const usedVariables = useMemo((): string[] => {
+    const matches = promptTemplate.match(/\{([^}]+)\}/g)
+    return matches ? [...matches] : []
+  }, [promptTemplate])
+
+  // Computed: undefined variables (used in prompt but not available) (AC11)
+  const undefinedVariables = useMemo(() => {
+    return usedVariables.filter((v) => !allAvailableVariables.includes(v))
+  }, [usedVariables, allAvailableVariables])
+
+  // Computed: unused image variables (defined but not in prompt) (AC11)
+  const unusedImageVariables = useMemo(() => {
+    const imageVars = referenceImages.map((img) => `{${img.name}}`)
+    return imageVars.filter((v) => !usedVariables.includes(v))
+  }, [referenceImages, usedVariables])
 
   /**
    * Insert variable at cursor position
@@ -148,36 +185,32 @@ export function ConfigModalAIGeneration({
     }
   }, [isOpen])
 
-  // Reset imageSource when imageUsageMode changes to 'none'
-  useEffect(() => {
-    if (imageUsageMode === 'none') {
-      form.setValue('imageSource', undefined)
-      form.setValue('imageUrl', '')
-      form.setValue('sourceBlockId', '')
-    }
-  }, [imageUsageMode, form])
-
-  // Reset dependent fields when imageSource changes
-  useEffect(() => {
-    if (imageSource !== 'url') {
-      form.setValue('imageUrl', '')
-    }
-    if (imageSource !== 'ai-block-output') {
-      form.setValue('sourceBlockId', '')
-    }
-  }, [imageSource, form])
-
   const handleSubmit = (data: AIGenerationConfigFormData) => {
     onSave({
       modelId: data.modelId,
       promptTemplate: data.promptTemplate,
-      imageUsageMode: data.imageUsageMode as ImageUsageMode,
-      imageSource: data.imageSource as ImageSourceType | undefined,
-      imageUrl: data.imageSource === 'url' ? data.imageUrl : undefined,
-      sourceBlockId: data.imageSource === 'ai-block-output' ? data.sourceBlockId : undefined,
+      aspectRatio: data.aspectRatio as AspectRatio | undefined,
+      referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
     })
     onClose()
   }
+
+  // Get supported aspect ratios for selected model
+  const supportedAspectRatios = selectedModel?.capabilities.supportedAspectRatios || []
+
+  // Reset form and reference images when modal opens with new config
+  useEffect(() => {
+    if (isOpen) {
+      // Reset form values
+      form.reset({
+        modelId: initialConfig?.modelId || '',
+        promptTemplate: initialConfig?.promptTemplate || '',
+        aspectRatio: initialConfig?.aspectRatio as AspectRatio | undefined,
+      })
+      // Reset reference images state
+      setReferenceImages(initialConfig?.referenceImages || [])
+    }
+  }, [isOpen, initialConfig, form])
 
   // Check if model supports image usage
   const modelSupportsImage = selectedModel?.capabilities.supportedModes.some((m) => m !== 'none')
@@ -199,11 +232,7 @@ export function ConfigModalAIGeneration({
                 <FormItem>
                   <FormLabel>Modèle IA</FormLabel>
                   <Select
-                    onValueChange={(value) => {
-                      field.onChange(value)
-                      // Reset image mode when model changes
-                      form.setValue('imageUsageMode', 'none')
-                    }}
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={isLoadingModels}
                   >
@@ -270,95 +299,32 @@ export function ConfigModalAIGeneration({
               )}
             />
 
-            {/* Image Usage Mode - only show if model supports image */}
-            {selectedModel && modelSupportsImage && (
+            {/* Aspect Ratio selector - only show if model has aspect ratio support (AC2) */}
+            {selectedModel && supportedAspectRatios.length > 0 && (
               <FormField
                 control={form.control}
-                name="imageUsageMode"
+                name="aspectRatio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mode d&apos;utilisation de l&apos;image</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>Ratio d&apos;image</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Sélectionner un mode" />
+                          <SelectValue placeholder="Défaut du modèle" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {selectedModel.capabilities.supportedModes.includes('none') && (
-                          <SelectItem value="none">Pas d&apos;image</SelectItem>
-                        )}
-                        {selectedModel.capabilities.supportedModes.includes('reference') && (
-                          <SelectItem value="reference">📷 Référence de style</SelectItem>
-                        )}
-                        {selectedModel.capabilities.supportedModes.includes('edit') && (
-                          <SelectItem value="edit">✏️ Édition directe</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {imageUsageMode === 'reference' &&
-                        "L'image servira de référence de style pour guider la génération."}
-                      {imageUsageMode === 'edit' &&
-                        "L'image sera directement transformée/éditée par l'IA."}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {/* Image Source - only show if imageUsageMode !== 'none' */}
-            {imageUsageMode && imageUsageMode !== 'none' && (
-              <FormField
-                control={form.control}
-                name="imageSource"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Source de l&apos;image</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Sélectionner une source" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {hasSelfie && (
-                          <SelectItem value="selfie">Selfie du participant</SelectItem>
-                        )}
-                        <SelectItem value="url">URL d&apos;une image externe</SelectItem>
-                        {previousAIBlocks.length > 0 && (
-                          <SelectItem value="ai-block-output">
-                            Image générée par un bloc IA précédent
+                        {ASPECT_RATIO_OPTIONS.filter((opt) =>
+                          supportedAspectRatios.includes(opt.value)
+                        ).map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
                           </SelectItem>
-                        )}
+                        ))}
                       </SelectContent>
                     </Select>
-                    {!hasSelfie && previousAIBlocks.length === 0 && (
-                      <FormDescription className="text-yellow-600">
-                        ⚠️ Seule l&apos;URL externe est disponible. Ajoutez un selfie (Step 3) ou un
-                        bloc IA précédent pour plus d&apos;options.
-                      </FormDescription>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {/* URL Input - visible if imageSource === 'url' */}
-            {imageSource === 'url' && (
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL de l&apos;image</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} />
-                    </FormControl>
                     <FormDescription>
-                      Fournir l&apos;URL complète d&apos;une image accessible publiquement
+                      Ratio de sortie pour l&apos;image générée
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -366,39 +332,18 @@ export function ConfigModalAIGeneration({
               />
             )}
 
-            {/* Block selector - visible if imageSource === 'ai-block-output' */}
-            {imageSource === 'ai-block-output' && (
-              <FormField
-                control={form.control}
-                name="sourceBlockId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bloc IA source</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Sélectionner un bloc" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {previousAIBlocks.map((block) => {
-                          const blockModel = AI_MODELS.find(
-                            (m) => m.id === block.config.modelId
-                          )
-                          const blockNumber = block.order + 1
-                          const modelName = blockModel?.name || block.config.modelId || 'IA'
-                          return (
-                            <SelectItem key={block.id} value={block.id}>
-                              Bloc {blockNumber} - {modelName}
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Reference Images section - only show if model supports reference mode (AC1) */}
+            {selectedModel && modelSupportsImage && (
+              <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
+                <ReferenceImageList
+                  images={referenceImages}
+                  hasSelfie={hasSelfie}
+                  previousAIBlocks={previousAIBlocks}
+                  animationId={animationId}
+                  modelId={selectedModelId}
+                  onChange={setReferenceImages}
+                />
+              </div>
             )}
 
             {/* Prompt template */}
@@ -426,34 +371,77 @@ export function ConfigModalAIGeneration({
                   </FormDescription>
                   <FormMessage />
 
-                  {/* Variables as clickable badges */}
-                  <div className="mt-3 space-y-2">
+                  {/* Variables as clickable badges (AC10) */}
+                  <div className="mt-3 space-y-3">
                     <p className="text-sm font-medium">Variables disponibles :</p>
-                    {availableVariables.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {availableVariables.map((variable) => (
-                          <Badge
-                            key={variable}
-                            variant="secondary"
-                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                            onClick={() => handleInsertVariable(variable)}
-                          >
-                            {variable}
-                          </Badge>
-                        ))}
+
+                    {/* Base variables from steps */}
+                    {availableVariables.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Champs et questions :</p>
+                        <div className="flex flex-wrap gap-2">
+                          {availableVariables.map((variable) => (
+                            <Badge
+                              key={variable}
+                              variant="secondary"
+                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                              onClick={() => handleInsertVariable(variable)}
+                            >
+                              {variable}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                    ) : (
+                    )}
+
+                    {/* Image reference variables */}
+                    {referenceImages.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Images de référence :</p>
+                        <div className="flex flex-wrap gap-2">
+                          {referenceImages.map((img) => {
+                            const variable = `{${img.name}}`
+                            const isUnused = unusedImageVariables.includes(variable)
+                            return (
+                              <Badge
+                                key={img.id}
+                                variant={isUnused ? 'outline' : 'secondary'}
+                                className={`cursor-pointer transition-colors ${
+                                  isUnused
+                                    ? 'border-yellow-500 text-yellow-700 hover:bg-yellow-100'
+                                    : 'hover:bg-primary hover:text-primary-foreground'
+                                }`}
+                                onClick={() => handleInsertVariable(variable)}
+                                title={isUnused ? 'Non utilisée dans le prompt' : undefined}
+                              >
+                                {variable}
+                                {isUnused && ' ⚠️'}
+                              </Badge>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {availableVariables.length === 0 && referenceImages.length === 0 && (
                       <p className="text-sm text-muted-foreground">
-                        Aucune variable disponible. Configurez les champs de base (Step 2) et/ou les
-                        questions (Step 3).
+                        Aucune variable disponible. Configurez les champs de base (Step 2), les
+                        questions (Step 3), ou ajoutez des images de référence ci-dessus.
                       </p>
                     )}
-                    {imageUsageMode !== 'none' && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        💡 Note : L&apos;image source est passée automatiquement au modèle IA selon
-                        le mode sélectionné ({imageUsageMode === 'reference' ? 'référence' : 'édition'}).
-                      </p>
+
+                    {/* Warning for undefined variables (AC11) */}
+                    {undefinedVariables.length > 0 && (
+                      <Alert variant="destructive" className="mt-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          Variables non définies dans le prompt : {undefinedVariables.join(', ')}
+                        </AlertDescription>
+                      </Alert>
                     )}
+
+
                   </div>
                 </FormItem>
               )}
