@@ -13,10 +13,12 @@ interface WebcamCaptureProps {
   setError: (error: string | null) => void
 }
 
-// Video constraints for webcam
+// Video constraints for webcam - request high resolution for better AI processing
+// Using ideal: 1080 allows the browser to use the best available resolution
+// If the camera can't do 1080p, it will use the maximum available
 const videoConstraints = {
-  width: 640,
-  height: 480,
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
   facingMode: 'user', // Front camera
 }
 
