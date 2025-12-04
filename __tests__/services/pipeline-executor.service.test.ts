@@ -44,7 +44,6 @@ jest.mock('@/lib/services/openai-image.service', () => ({
 
 jest.mock('@/lib/services/google-ai.service', () => ({
   googleAIService: {
-    generateImageWithImagen: jest.fn(),
     generateImageWithGemini: jest.fn(),
   },
 }))

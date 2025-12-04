@@ -13,9 +13,8 @@ export const AI_PROVIDERS = {
 
 // AI Model IDs for image generation
 export const MODEL_IDS = {
-  DALLE3: 'dall-e-3',
   GPT_IMAGE_1: 'gpt-image-1',
-  IMAGEN_4: 'imagen-4.0-generate-001',
+  GEMINI_FLASH_IMAGE: 'gemini-2.5-flash-image',
 } as const
 
 export const STATUS_VALUE = {

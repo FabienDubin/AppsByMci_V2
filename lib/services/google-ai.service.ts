@@ -1,24 +1,27 @@
 // Google AI Studio Service
-// Handles Imagen 3 and Gemini 2.5 Flash Image generation via Google AI Studio API
+// Handles Gemini 2.5 Flash Image generation via Google AI Studio API
 
 import { logger } from '@/lib/logger'
 
 /**
- * Imagen 3 generation options
- */
-export interface ImagenGenerateOptions {
-  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
-  sampleCount?: number
-  safetyFilterLevel?: 'block_only_high' | 'block_medium_and_above' | 'block_low_and_above'
-}
-
-/**
  * Gemini generation options
+ *
+ * Supported aspect ratios (10 available):
+ * - '1:1' - Square
+ * - '16:9' - Landscape (YouTube, desktop)
+ * - '9:16' - Portrait (Stories, TikTok, Reels)
+ * - '4:3' - Classic landscape
+ * - '3:4' - Classic portrait
+ * - '3:2' - Photo landscape
+ * - '2:3' - Photo portrait
+ * - '5:4' - Slightly landscape
+ * - '4:5' - Instagram portrait
+ * - '21:9' - Ultra-wide cinematic
  */
 export interface GeminiGenerateOptions {
   temperature?: number
   referenceImage?: Buffer
-  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '5:4' | '4:5' | '21:9'
 }
 
 /**
@@ -78,87 +81,6 @@ async function handleApiResponse(response: Response, operation: string): Promise
  * Google AI Studio Service
  */
 export const googleAIService = {
-  /**
-   * Generate an image using Imagen 3 via Google AI Studio
-   *
-   * @param prompt - Text prompt for image generation
-   * @param options - Generation options
-   * @returns Buffer containing the generated image
-   *
-   * @example
-   * ```ts
-   * const imageBuffer = await googleAIService.generateImageWithImagen(
-   *   'A beautiful sunset over the ocean',
-   *   { aspectRatio: '1:1' }
-   * )
-   * ```
-   */
-  async generateImageWithImagen(
-    prompt: string,
-    options: ImagenGenerateOptions = {}
-  ): Promise<Buffer> {
-    const apiKey = getApiKey()
-    const {
-      aspectRatio = '1:1',
-      sampleCount = 1,
-      safetyFilterLevel = 'block_only_high',
-    } = options
-
-    logger.info({
-      model: 'imagen-3',
-      promptLength: prompt.length,
-      aspectRatio,
-    }, 'Starting Imagen 3 image generation')
-
-    const startTime = Date.now()
-
-    // Imagen API via Google AI Studio - using Imagen 4.0 (Imagen 3.0 is deprecated)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        instances: [
-          {
-            prompt,
-          },
-        ],
-        parameters: {
-          sampleCount,
-          aspectRatio,
-          safetyFilterLevel,
-        },
-      }),
-    })
-
-    await handleApiResponse(response, 'generateImageWithImagen')
-
-    const data = await response.json()
-
-    // Imagen 3 returns base64-encoded image in predictions[].bytesBase64Encoded
-    const base64Image = data.predictions?.[0]?.bytesBase64Encoded
-
-    if (!base64Image) {
-      logger.error({ response: data }, 'No image data in Imagen 3 response')
-      throw new Error('No image data returned from Imagen 3')
-    }
-
-    // Decode base64 to buffer
-    const imageBuffer = Buffer.from(base64Image, 'base64')
-
-    const duration = Date.now() - startTime
-    logger.info({
-      model: 'imagen-3',
-      duration: `${duration}ms`,
-      imageSize: imageBuffer.length,
-    }, 'Imagen 3 image generated successfully')
-
-    return imageBuffer
-  },
-
   /**
    * Generate an image using Gemini 2.5 Flash Image via Google AI Studio
    * Supports text-to-image and image-to-image (with reference image)

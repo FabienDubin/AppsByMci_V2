@@ -1,5 +1,5 @@
-// Tests for Google AI service
-import { googleAIService, GoogleAIError } from '@/lib/services/google-ai.service'
+// Tests for Google AI service (Gemini 2.5 Flash Image)
+import { googleAIService } from '@/lib/services/google-ai.service'
 
 // Mock fetch globally
 const mockFetch = jest.fn()
@@ -25,93 +25,6 @@ describe('google-ai.service', () => {
 
   afterAll(() => {
     process.env = originalEnv
-  })
-
-  describe('generateImageWithImagen', () => {
-    it('should throw error if API key is not set', async () => {
-      process.env.GOOGLE_API_KEY = ''
-
-      await expect(
-        googleAIService.generateImageWithImagen('Test prompt')
-      ).rejects.toThrow('GOOGLE_API_KEY environment variable is not set')
-    })
-
-    it('should call Imagen API with correct parameters', async () => {
-      const base64Image = Buffer.from('test-image').toString('base64')
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            predictions: [{ bytesBase64Encoded: base64Image }],
-          }),
-      })
-
-      await googleAIService.generateImageWithImagen('Test prompt', {
-        aspectRatio: '1:1',
-      })
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('imagen-4.0-generate-001:predict'),
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-      )
-
-      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body)
-      expect(requestBody.instances[0].prompt).toBe('Test prompt')
-      expect(requestBody.parameters.aspectRatio).toBe('1:1')
-    })
-
-    it('should decode base64 response to buffer', async () => {
-      const originalImage = 'test-image-data'
-      const base64Image = Buffer.from(originalImage).toString('base64')
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            predictions: [{ bytesBase64Encoded: base64Image }],
-          }),
-      })
-
-      const result = await googleAIService.generateImageWithImagen('Test prompt')
-
-      expect(result).toBeInstanceOf(Buffer)
-      expect(result.toString()).toBe(originalImage)
-    })
-
-    it('should throw error if no image data in response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ predictions: [] }),
-      })
-
-      await expect(
-        googleAIService.generateImageWithImagen('Test prompt')
-      ).rejects.toThrow('No image data returned from Imagen 3')
-    })
-
-    it('should throw GoogleAIError on API failure', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: () =>
-          Promise.resolve({
-            error: {
-              message: 'Invalid request',
-              code: 'INVALID_ARGUMENT',
-            },
-          }),
-      })
-
-      await expect(
-        googleAIService.generateImageWithImagen('Bad prompt')
-      ).rejects.toThrow(GoogleAIError)
-    })
   })
 
   describe('generateImageWithGemini', () => {

@@ -174,36 +174,20 @@ async function executeAIBlock(
 
     // Execute based on model
     switch (modelId) {
-      case 'dall-e-3':
-        // DALL-E 3: Text-to-image only (ignores sourceImage)
-        imageBuffer = await withRetry(
-          () => openaiImageService.generateImage(prompt, { size: '1024x1024' }),
-          { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
-        )
-        break
-
       case 'gpt-image-1':
-        // GPT Image 1: Image-to-image (requires sourceImage)
+        // GPT Image 1: Supports text-to-image, reference, and edit modes
         if (config.imageUsageMode === 'edit' && sourceImage) {
           imageBuffer = await withRetry(
             () => openaiImageService.editImage(sourceImage!, prompt, { size: '1024x1024' }),
             { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
           )
         } else {
-          // Use as text-to-image if no source image
+          // Text-to-image mode
           imageBuffer = await withRetry(
             () => openaiImageService.generateImage(prompt, { size: '1024x1024' }),
             { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
           )
         }
-        break
-
-      case 'imagen-4.0-generate-001':
-        // Imagen 4.0: Text-to-image via Google AI Studio
-        imageBuffer = await withRetry(
-          () => googleAIService.generateImageWithImagen(prompt, { aspectRatio: '1:1' }),
-          { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
-        )
         break
 
       case 'gemini-2.5-flash-image':

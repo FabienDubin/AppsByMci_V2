@@ -6,9 +6,8 @@ import { validateForPublication } from '@/lib/services/animation-validation.serv
 
 // AI Model display names mapping
 const AI_MODEL_NAMES: Record<string, string> = {
-  'dall-e-3': 'DALL-E 3',
   'gpt-image-1': 'GPT Image 1',
-  'imagen-4.0-generate-001': 'Google Imagen 4.0',
+  'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image',
 }
 
 // Block type display names

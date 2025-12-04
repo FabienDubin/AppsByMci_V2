@@ -26,7 +26,7 @@ describe('Animation Summary Utility', () => {
             type: 'ai-generation',
             blockName: 'ai-generation',
             order: 0,
-            config: { modelId: 'dall-e-3', promptTemplate: 'Generate...' },
+            config: { modelId: 'gpt-image-1', promptTemplate: 'Generate...' },
           },
         ],
         emailConfig: {
@@ -75,7 +75,7 @@ describe('Animation Summary Utility', () => {
 
       // Pipeline
       expect(summary.pipeline.blocksCount).toBe(1)
-      expect(summary.pipeline.aiModel).toBe('DALL-E 3')
+      expect(summary.pipeline.aiModel).toBe('GPT Image 1')
       expect(summary.pipeline.hasAiBlock).toBe(true)
 
       // Email

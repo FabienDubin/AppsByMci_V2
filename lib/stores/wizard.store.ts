@@ -56,8 +56,8 @@ export interface PipelineBlockConfig {
   format?: 'square' | '16:9' | '4:3' | 'original'
   dimensions?: number // 256-2048
 
-  // IA Generation
-  modelId?: string // 'dall-e-3', 'gpt-image-1', 'imagen-4.0-generate-001'
+  // AI Generation
+  modelId?: string // 'gpt-image-1', 'gemini-2.5-flash-image'
   promptTemplate?: string // max 2000 chars
 
   // Image configuration (for AI generation blocks)

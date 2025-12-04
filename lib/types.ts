@@ -65,7 +65,7 @@ export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS]
 // Image usage mode - how the image is used by the AI model
 export type ImageUsageMode =
   | 'none'       // No image used - text-to-image generation only
-  | 'reference'  // Image as style reference (OpenAI /generations, Imagen multimodal)
+  | 'reference'  // Image as style reference (OpenAI /generations, Gemini multimodal)
   | 'edit'       // Direct image editing/transformation (OpenAI /edits only)
 
 // Image source type - where the image comes from

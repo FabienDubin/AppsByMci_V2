@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronUp, ChevronDown, Settings, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PipelineBlock } from '@/lib/stores/wizard.store'
+import { AI_MODELS } from '@/lib/ai-models'
 
 interface PipelineBlockCardProps {
   block: PipelineBlock
@@ -60,10 +61,12 @@ function getConfigPreview(block: PipelineBlock): string | null {
   }
 
   if (block.blockName === 'ai-generation' && block.config.modelId) {
+    const model = AI_MODELS.find((m) => m.id === block.config.modelId)
+    const modelName = model?.name || block.config.modelId
     const promptPreview = block.config.promptTemplate
       ? block.config.promptTemplate.slice(0, 50) + (block.config.promptTemplate.length > 50 ? '...' : '')
       : ''
-    return `${block.config.modelId}${promptPreview ? ' - ' + promptPreview : ''}`
+    return `${modelName}${promptPreview ? ' - ' + promptPreview : ''}`
   }
 
   if (block.blockName === 'filters') {
