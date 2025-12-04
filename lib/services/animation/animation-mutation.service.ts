@@ -438,6 +438,49 @@ class AnimationMutationService {
       'Animation deleted permanently'
     )
   }
+
+  /**
+   * Increment animation statistics atomically
+   * @param animationId - The animation ID to update
+   * @param type - 'success' for successful generation, 'failure' for failed generation
+   */
+  async incrementStats(
+    animationId: string,
+    type: 'success' | 'failure'
+  ): Promise<void> {
+    try {
+      // Build the update operation
+      // Always increment totalParticipations
+      // Increment successfulGenerations or failedGenerations based on type
+      const updateOps: Record<string, number> = {
+        'stats.totalParticipations': 1,
+      }
+
+      if (type === 'success') {
+        updateOps['stats.successfulGenerations'] = 1
+      } else {
+        updateOps['stats.failedGenerations'] = 1
+      }
+
+      // Use $inc for atomic increment
+      await Animation.findByIdAndUpdate(
+        animationId,
+        { $inc: updateOps },
+        { new: true }
+      )
+
+      logger.info(
+        { animationId, type },
+        'Animation stats incremented'
+      )
+    } catch (error) {
+      // Log but don't throw - stats update shouldn't break the main flow
+      logger.error(
+        { animationId, type, error },
+        'Failed to increment animation stats'
+      )
+    }
+  }
 }
 
 // Export singleton instance

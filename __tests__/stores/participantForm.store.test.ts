@@ -200,7 +200,7 @@ describe('participantFormStore', () => {
       expect(useParticipantFormStore.getState().error).toBeNull()
     })
 
-    it('should reset to initial state', () => {
+    it('should reset to initial state but preserve totalSteps', () => {
       const { setField, setTotalSteps, setStep, setAnswer, setError, reset } =
         useParticipantFormStore.getState()
 
@@ -217,7 +217,8 @@ describe('participantFormStore', () => {
 
       const state = useParticipantFormStore.getState()
       expect(state.currentStep).toBe(1)
-      expect(state.totalSteps).toBe(1)
+      // totalSteps is preserved as it's determined by animation config, not user input
+      expect(state.totalSteps).toBe(5)
       expect(state.formData.nom).toBeUndefined()
       expect(state.formData.email).toBeUndefined()
       expect(state.formData.answers).toEqual([])

@@ -29,8 +29,18 @@ export interface ParticipantFormData {
  * Wizard phase type
  * - form: collecting participant data
  * - processing: showing loading screen after submission
+ * - result: showing successful generation result
+ * - error: showing generation error with retry option
  */
-export type WizardPhase = 'form' | 'processing'
+export type WizardPhase = 'form' | 'processing' | 'result' | 'error'
+
+/**
+ * Generation error type for failed generations
+ */
+export interface GenerationError {
+  code: string
+  message: string
+}
 
 /**
  * Store state type
@@ -43,6 +53,8 @@ interface ParticipantFormState {
   error: string | null
   wizardPhase: WizardPhase
   generationId: string | null
+  resultUrl: string | null
+  generationError: GenerationError | null
 }
 
 /**
@@ -68,6 +80,8 @@ interface ParticipantFormActions {
   setError: (error: string | null) => void
   setWizardPhase: (phase: WizardPhase) => void
   setGenerationId: (id: string | null) => void
+  setResultUrl: (url: string | null) => void
+  setGenerationError: (error: GenerationError | null) => void
   reset: () => void
 }
 
@@ -85,6 +99,8 @@ const initialState: ParticipantFormState = {
   error: null,
   wizardPhase: 'form',
   generationId: null,
+  resultUrl: null,
+  generationError: null,
 }
 
 /**
@@ -210,9 +226,25 @@ export const useParticipantFormStore = create<ParticipantFormStore>()((set, get)
   },
 
   /**
+   * Set result URL after generation completes
+   */
+  setResultUrl: (url: string | null) => {
+    set({ resultUrl: url })
+  },
+
+  /**
+   * Set generation error after generation fails
+   */
+  setGenerationError: (error: GenerationError | null) => {
+    set({ generationError: error })
+  },
+
+  /**
    * Reset store to initial state
+   * Preserves totalSteps as it's determined by animation config, not user input
    */
   reset: () => {
-    set(initialState)
+    const { totalSteps } = get()
+    set({ ...initialState, totalSteps })
   },
 }))

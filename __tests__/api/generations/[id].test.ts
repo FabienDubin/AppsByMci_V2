@@ -17,20 +17,11 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-const mockGeneration = {
-  _id: new mongoose.Types.ObjectId(),
-  status: 'processing',
-  generatedImageUrl: null,
-  error: null,
-  toString: function () {
-    return this._id.toString()
-  },
-}
-
 jest.mock('@/models/Generation.model', () => ({
   __esModule: true,
   default: {
     findById: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
   },
 }))
 
@@ -40,8 +31,15 @@ jest.mock('@/lib/blob-storage', () => ({
   },
 }))
 
+jest.mock('@/lib/services/animation.service', () => ({
+  animationService: {
+    incrementStats: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
 import Generation from '@/models/Generation.model'
 import { blobStorageService } from '@/lib/blob-storage'
+import { animationService } from '@/lib/services/animation.service'
 
 describe('GET /api/generations/[id]', () => {
   const validObjectId = new mongoose.Types.ObjectId().toString()
@@ -80,9 +78,11 @@ describe('GET /api/generations/[id]', () => {
   it('should return processing status correctly', async () => {
     ;(Generation.findById as jest.Mock).mockResolvedValue({
       _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId: new mongoose.Types.ObjectId(),
       status: 'processing',
       generatedImageUrl: null,
       error: null,
+      statsRecorded: false,
     })
 
     const response = await GET(mockRequest, {
@@ -98,11 +98,14 @@ describe('GET /api/generations/[id]', () => {
   })
 
   it('should return completed status with SAS URL', async () => {
+    const animationId = new mongoose.Types.ObjectId()
     ;(Generation.findById as jest.Mock).mockResolvedValue({
       _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
       status: 'completed',
       generatedImageUrl: 'https://blob.azure.net/generated-images/results/123.png',
       error: null,
+      statsRecorded: false,
     })
 
     const response = await GET(mockRequest, {
@@ -119,11 +122,14 @@ describe('GET /api/generations/[id]', () => {
   })
 
   it('should return failed status with error details', async () => {
+    const animationId = new mongoose.Types.ObjectId()
     ;(Generation.findById as jest.Mock).mockResolvedValue({
       _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
       status: 'failed',
       generatedImageUrl: null,
       error: JSON.stringify({ code: 'GEN_5003', message: 'API error' }),
+      statsRecorded: false,
     })
 
     const response = await GET(mockRequest, {
@@ -140,11 +146,14 @@ describe('GET /api/generations/[id]', () => {
   })
 
   it('should handle non-JSON error strings gracefully', async () => {
+    const animationId = new mongoose.Types.ObjectId()
     ;(Generation.findById as jest.Mock).mockResolvedValue({
       _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
       status: 'failed',
       generatedImageUrl: null,
       error: 'Plain text error message',
+      statsRecorded: false,
     })
 
     const response = await GET(mockRequest, {
@@ -160,11 +169,14 @@ describe('GET /api/generations/[id]', () => {
 
   it('should fallback to raw URL if SAS generation fails', async () => {
     const rawUrl = 'https://blob.azure.net/generated-images/results/123.png'
+    const animationId = new mongoose.Types.ObjectId()
     ;(Generation.findById as jest.Mock).mockResolvedValue({
       _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
       status: 'completed',
       generatedImageUrl: rawUrl,
       error: null,
+      statsRecorded: true, // Already recorded, so no increment call
     })
     ;(blobStorageService.getResultSasUrl as jest.Mock).mockRejectedValue(
       new Error('SAS generation failed')
@@ -178,5 +190,65 @@ describe('GET /api/generations/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data.data.resultUrl).toBe(rawUrl)
+  })
+
+  it('should call incrementStats with success for completed generation', async () => {
+    const animationId = new mongoose.Types.ObjectId()
+    ;(Generation.findById as jest.Mock).mockResolvedValue({
+      _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
+      status: 'completed',
+      generatedImageUrl: 'https://blob.azure.net/generated-images/results/123.png',
+      error: null,
+      statsRecorded: false,
+    })
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ id: validObjectId }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(animationService.incrementStats).toHaveBeenCalledWith(animationId.toString(), 'success')
+    expect(Generation.findByIdAndUpdate).toHaveBeenCalledWith(validObjectId, { statsRecorded: true })
+  })
+
+  it('should call incrementStats with failure for failed generation', async () => {
+    const animationId = new mongoose.Types.ObjectId()
+    ;(Generation.findById as jest.Mock).mockResolvedValue({
+      _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
+      status: 'failed',
+      generatedImageUrl: null,
+      error: JSON.stringify({ code: 'GEN_5003', message: 'API error' }),
+      statsRecorded: false,
+    })
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ id: validObjectId }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(animationService.incrementStats).toHaveBeenCalledWith(animationId.toString(), 'failure')
+    expect(Generation.findByIdAndUpdate).toHaveBeenCalledWith(validObjectId, { statsRecorded: true })
+  })
+
+  it('should NOT call incrementStats when statsRecorded is true (idempotency)', async () => {
+    const animationId = new mongoose.Types.ObjectId()
+    ;(Generation.findById as jest.Mock).mockResolvedValue({
+      _id: new mongoose.Types.ObjectId(validObjectId),
+      animationId,
+      status: 'completed',
+      generatedImageUrl: 'https://blob.azure.net/generated-images/results/123.png',
+      error: null,
+      statsRecorded: true,
+    })
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ id: validObjectId }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(animationService.incrementStats).not.toHaveBeenCalled()
+    expect(Generation.findByIdAndUpdate).not.toHaveBeenCalled()
   })
 })

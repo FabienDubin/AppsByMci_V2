@@ -98,6 +98,10 @@ export class AnimationService {
   async deleteAnimation(animationId: string, userId: string): Promise<void> {
     return animationMutationService.deleteAnimation(animationId, userId)
   }
+
+  async incrementStats(animationId: string, type: 'success' | 'failure'): Promise<void> {
+    return animationMutationService.incrementStats(animationId, type)
+  }
 }
 
 // Export singleton instance (backward compatible)

@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { connectDatabase } from '@/lib/database'
 import Generation from '@/models/Generation.model'
 import { blobStorageService } from '@/lib/blob-storage'
+import { animationService } from '@/lib/services/animation.service'
 import { logger } from '@/lib/logger'
 
 // API response helpers
@@ -73,6 +74,18 @@ export async function GET(
         logger.warn({ generationId: id, error: sasError }, 'SAS URL generation failed, using raw URL')
         response.resultUrl = generation.generatedImageUrl
       }
+
+      // Record stats once when result is first fetched (AC6)
+      if (!generation.statsRecorded) {
+        try {
+          await animationService.incrementStats(generation.animationId.toString(), 'success')
+          await Generation.findByIdAndUpdate(id, { statsRecorded: true })
+          logger.info({ generationId: id, animationId: generation.animationId }, 'Animation stats recorded (success)')
+        } catch (statsError) {
+          // Don't fail the request if stats recording fails
+          logger.error({ generationId: id, error: statsError }, 'Failed to record animation stats')
+        }
+      }
     }
 
     // Add error details if failed
@@ -81,6 +94,18 @@ export async function GET(
         response.error = JSON.parse(generation.error)
       } catch {
         response.error = { code: 'GEN_5001', message: generation.error }
+      }
+
+      // Record stats once when error is first fetched (AC6)
+      if (!generation.statsRecorded) {
+        try {
+          await animationService.incrementStats(generation.animationId.toString(), 'failure')
+          await Generation.findByIdAndUpdate(id, { statsRecorded: true })
+          logger.info({ generationId: id, animationId: generation.animationId }, 'Animation stats recorded (failure)')
+        } catch (statsError) {
+          // Don't fail the request if stats recording fails
+          logger.error({ generationId: id, error: statsError }, 'Failed to record animation stats')
+        }
       }
     }
 

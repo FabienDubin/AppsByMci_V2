@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
@@ -12,7 +12,13 @@ import { BaseFieldsStep } from './steps/BaseFieldsStep'
 import { SelfieStep } from './steps/SelfieStep'
 import { QuestionStep } from './steps/QuestionStep'
 import { ProcessingStep } from './steps/ProcessingStep'
+import { ResultStep } from './steps/ResultStep'
+import { ErrorStep } from './steps/ErrorStep'
 import type { IInputElement } from '@/models/Animation.model'
+
+// Polling configuration
+const POLLING_INTERVAL = 3000 // 3 seconds
+const MAX_POLLING_ATTEMPTS = 60 // 3 minutes max (60 * 3s)
 
 interface ParticipantWizardProps {
   className?: string
@@ -34,10 +40,18 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
     formData,
     wizardPhase,
     generationId,
+    resultUrl,
+    generationError,
     setSubmitting,
     setWizardPhase,
     setGenerationId,
+    setResultUrl,
+    setGenerationError,
   } = useParticipantFormStore()
+
+  // Polling ref to track and clean up intervals
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingAttemptRef = useRef(0)
 
   // Local error state for step validation
   const [stepError, setStepError] = useState<string | null>(null)
@@ -79,6 +93,85 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
   useEffect(() => {
     setTotalSteps(stepConfig.length)
   }, [stepConfig, setTotalSteps])
+
+  /**
+   * Poll generation status during processing phase
+   * Transitions to result or error phase based on API response
+   */
+  useEffect(() => {
+    // Only poll when in processing phase with a valid generationId
+    if (wizardPhase !== 'processing' || !generationId) {
+      return
+    }
+
+    // Reset polling attempt counter
+    pollingAttemptRef.current = 0
+
+    const pollGenerationStatus = async () => {
+      try {
+        pollingAttemptRef.current += 1
+
+        // Safety check: stop polling after max attempts
+        if (pollingAttemptRef.current > MAX_POLLING_ATTEMPTS) {
+          logger.warn({ generationId }, 'Max polling attempts reached')
+          setGenerationError({
+            code: 'GEN_5002',
+            message: 'La génération a pris trop de temps',
+          })
+          setWizardPhase('error')
+          return
+        }
+
+        const response = await fetch(`/api/generations/${generationId}`)
+        const data = await response.json()
+
+        if (!response.ok) {
+          logger.error({ generationId, error: data.error }, 'Polling error')
+          return // Continue polling on transient errors
+        }
+
+        const { status, resultUrl: url, error } = data.data
+
+        if (status === 'completed' && url) {
+          // Success! Transition to result phase
+          setResultUrl(url)
+          setWizardPhase('result')
+
+          // Clear polling
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+        } else if (status === 'failed') {
+          // Error - transition to error phase
+          setGenerationError(error || { code: 'GEN_5001', message: 'Erreur inconnue' })
+          setWizardPhase('error')
+
+          // Clear polling
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+        }
+        // For 'pending' or 'processing', continue polling
+      } catch (error) {
+        logger.error({ generationId, error }, 'Polling fetch error')
+        // Continue polling on network errors
+      }
+    }
+
+    // Start polling immediately and then at intervals
+    pollGenerationStatus()
+    pollingRef.current = setInterval(pollGenerationStatus, POLLING_INTERVAL)
+
+    // Cleanup on unmount or phase change
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [wizardPhase, generationId, setResultUrl, setGenerationError, setWizardPhase])
 
   // Progress percentage
   const progressPercentage = (currentStep / totalSteps) * 100
@@ -289,6 +382,36 @@ export function ParticipantWizard({ className }: ParticipantWizardProps) {
         <ProcessingStep
           generationId={generationId}
           customLoadingMessages={animation.customization?.loadingMessages}
+          submissionMessage={animation.customization?.submissionMessage}
+        />
+      </div>
+    )
+  }
+
+  // Result phase - show success result
+  if (wizardPhase === 'result' && resultUrl && generationId) {
+    return (
+      <div className={className}>
+        <ResultStep
+          resultUrl={resultUrl}
+          animationSlug={animation.slug}
+          thankYouMessage={animation.customization?.thankYouMessage}
+          emailEnabled={animation.emailConfig?.enabled}
+          userEmail={formData.email}
+          generationId={generationId}
+        />
+      </div>
+    )
+  }
+
+  // Error phase - show error with retry
+  if (wizardPhase === 'error') {
+    return (
+      <div className={className}>
+        <ErrorStep
+          errorCode={generationError?.code}
+          errorMessage={generationError?.message}
+          animationSlug={animation.slug}
         />
       </div>
     )

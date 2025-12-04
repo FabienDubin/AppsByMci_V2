@@ -61,6 +61,16 @@ export { DEFAULT_LOADING_MESSAGES }
 export type AnimationStatus = 'draft' | 'published' | 'archived'
 
 /**
+ * Animation statistics interface
+ * Tracks participation metrics for each animation
+ */
+export interface IAnimationStats {
+  totalParticipations: number
+  successfulGenerations: number
+  failedGenerations: number
+}
+
+/**
  * Animation document interface
  */
 export interface IAnimation extends Document {
@@ -80,6 +90,7 @@ export interface IAnimation extends Document {
   publicDisplayConfig?: IPublicDisplayConfig // Step 6 - New
   customization?: ICustomization // Step 7 - New (replaces legacy)
   qrCodeUrl?: string
+  stats?: IAnimationStats // Story 4.6 - Participation statistics
   publishedAt?: Date
   archivedAt?: Date // Story 3.11 - Archive timestamp
   createdAt: Date
@@ -637,6 +648,24 @@ const AnimationSchema = new Schema<IAnimation>(
     qrCodeUrl: {
       type: String,
       default: undefined
+    },
+    // Story 4.6: Participation statistics
+    stats: {
+      totalParticipations: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      successfulGenerations: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      failedGenerations: {
+        type: Number,
+        default: 0,
+        min: 0
+      }
     },
     publishedAt: {
       type: Date,

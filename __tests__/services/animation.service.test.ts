@@ -467,4 +467,49 @@ describe('AnimationService', () => {
       expect(result).toBeDefined()
     })
   })
+
+  describe('incrementStats', () => {
+    const animationId = '507f1f77bcf86cd799439017'
+
+    it('should increment totalParticipations and successfulGenerations on success', async () => {
+      mockAnimation.findByIdAndUpdate.mockResolvedValue({} as any)
+
+      await service.incrementStats(animationId, 'success')
+
+      expect(mockAnimation.findByIdAndUpdate).toHaveBeenCalledWith(
+        animationId,
+        {
+          $inc: {
+            'stats.totalParticipations': 1,
+            'stats.successfulGenerations': 1,
+          },
+        },
+        { new: true }
+      )
+    })
+
+    it('should increment totalParticipations and failedGenerations on failure', async () => {
+      mockAnimation.findByIdAndUpdate.mockResolvedValue({} as any)
+
+      await service.incrementStats(animationId, 'failure')
+
+      expect(mockAnimation.findByIdAndUpdate).toHaveBeenCalledWith(
+        animationId,
+        {
+          $inc: {
+            'stats.totalParticipations': 1,
+            'stats.failedGenerations': 1,
+          },
+        },
+        { new: true }
+      )
+    })
+
+    it('should not throw error if database update fails', async () => {
+      mockAnimation.findByIdAndUpdate.mockRejectedValue(new Error('Database error'))
+
+      // Should not throw
+      await expect(service.incrementStats(animationId, 'success')).resolves.not.toThrow()
+    })
+  })
 })

@@ -51,6 +51,24 @@ export function MessagesSection({
   const handleLoadingMessagesChange = (value: string) => {
     setLoadingMessagesText(value)
     setLoadingMessagesError(null)
+
+    // Parse the text to array and update the form
+    const parsedMessages = parseLoadingMessages(value)
+
+    // Validate min/max count
+    if (parsedMessages.length < 3) {
+      setLoadingMessagesError('Minimum 3 messages requis')
+    } else if (parsedMessages.length > 10) {
+      setLoadingMessagesError('Maximum 10 messages autorisés')
+    } else if (parsedMessages.some((msg) => msg.length > 100)) {
+      setLoadingMessagesError('Chaque message doit faire maximum 100 caractères')
+    } else {
+      // Update the form with parsed messages (this will trigger the store update via form.watch)
+      form.setValue('customization.loadingMessages', parsedMessages, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+    }
   }
 
   return (

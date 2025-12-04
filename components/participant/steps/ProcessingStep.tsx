@@ -29,13 +29,18 @@ interface ProcessingStepProps {
    * If provided, these override the default messages
    */
   customLoadingMessages?: string[]
+  /**
+   * Submission message shown above the spinner
+   * From animation.customization.submissionMessage
+   */
+  submissionMessage?: string
 }
 
 /**
  * ProcessingStep - Loading screen shown after form submission
  * Displays rotating messages while generation is in progress
  */
-export function ProcessingStep({ generationId, customLoadingMessages }: ProcessingStepProps) {
+export function ProcessingStep({ generationId, customLoadingMessages, submissionMessage }: ProcessingStepProps) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
 
   // Use custom messages if provided, otherwise use defaults
@@ -59,6 +64,17 @@ export function ProcessingStep({ generationId, customLoadingMessages }: Processi
       data-testid="processing-step"
       data-generation-id={generationId}
     >
+      {/* Submission message (shown above spinner if configured) */}
+      {submissionMessage && submissionMessage.trim() && (
+        <p
+          className="text-xl font-medium mb-6"
+          style={{ color: 'var(--primary-color)' }}
+          data-testid="submission-message"
+        >
+          {submissionMessage}
+        </p>
+      )}
+
       {/* Animated spinner */}
       <div className="relative mb-8">
         <div className="w-20 h-20 rounded-full border-4 border-gray-200" />
@@ -75,11 +91,6 @@ export function ProcessingStep({ generationId, customLoadingMessages }: Processi
       >
         {messages[currentMessageIndex]}
       </p>
-
-      {/* Subtle hint */}
-      {/* <p className="mt-4 text-sm text-gray-500">
-        Ne ferme pas cette page
-      </p> */}
     </div>
   )
 }

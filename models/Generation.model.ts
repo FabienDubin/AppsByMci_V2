@@ -18,6 +18,7 @@ export interface IGeneration extends Document {
   generatedImageUrl?: string // AI-generated image (Azure Blob URL)
   finalPrompt?: string // Final prompt sent to AI after variable substitution
   error?: string
+  statsRecorded?: boolean // Flag to prevent duplicate stats recording (Story 4.6 AC6)
   createdAt: Date
   updatedAt: Date
 }
@@ -61,6 +62,10 @@ const GenerationSchema = new Schema<IGeneration>(
     error: {
       type: String,
       default: undefined
+    },
+    statsRecorded: {
+      type: Boolean,
+      default: false
     }
   },
   {
