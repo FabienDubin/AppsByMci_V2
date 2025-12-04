@@ -20,7 +20,10 @@ import { logger } from '@/lib/logger'
  */
 export interface GeminiGenerateOptions {
   temperature?: number
+  /** @deprecated Use referenceImages array instead */
   referenceImage?: Buffer
+  /** Array of reference images for multi-image generation (AC4) */
+  referenceImages?: Buffer[]
   aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '5:4' | '4:5' | '21:9'
 }
 
@@ -83,10 +86,10 @@ async function handleApiResponse(response: Response, operation: string): Promise
 export const googleAIService = {
   /**
    * Generate an image using Gemini 2.5 Flash Image via Google AI Studio
-   * Supports text-to-image and image-to-image (with reference image)
+   * Supports text-to-image and image-to-image (with reference images)
    *
    * @param prompt - Text prompt for image generation
-   * @param options - Generation options including optional reference image
+   * @param options - Generation options including optional reference images and aspectRatio
    * @returns Buffer containing the generated image
    *
    * @example
@@ -96,10 +99,19 @@ export const googleAIService = {
    *   'A beautiful sunset over the ocean'
    * )
    *
-   * // Image-to-image with reference
+   * // Image-to-image with single reference (backward compatible)
    * const imageBuffer = await googleAIService.generateImageWithGemini(
    *   'Transform this person into a superhero',
    *   { referenceImage: selfieBuffer }
+   * )
+   *
+   * // Multi-image with aspect ratio (AC4)
+   * const imageBuffer = await googleAIService.generateImageWithGemini(
+   *   'Combine Image 1 selfie with Image 2 logo and Image 3 background',
+   *   {
+   *     referenceImages: [selfieBuffer, logoBuffer, backgroundBuffer],
+   *     aspectRatio: '9:16'
+   *   }
    * )
    * ```
    */
@@ -108,12 +120,19 @@ export const googleAIService = {
     options: GeminiGenerateOptions = {}
   ): Promise<Buffer> {
     const apiKey = getApiKey()
-    const hasReferenceImage = !!options.referenceImage
+
+    // Support both legacy referenceImage and new referenceImages array
+    const referenceImages: Buffer[] = options.referenceImages
+      ? options.referenceImages
+      : options.referenceImage
+        ? [options.referenceImage]
+        : []
 
     logger.info({
       model: 'gemini-2.5-flash-image',
       promptLength: prompt.length,
-      hasReferenceImage,
+      referenceImageCount: referenceImages.length,
+      aspectRatio: options.aspectRatio,
     }, 'Starting Gemini 2.5 Flash Image generation')
 
     const startTime = Date.now()
@@ -121,21 +140,37 @@ export const googleAIService = {
     // Gemini 2.5 Flash Image (Nano Banana) - supports text-to-image and image editing with reference
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`
 
-    // Build parts array - text prompt + optional reference image
+    // Build parts array - text prompt + optional reference images (AC4)
     const parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }> = []
 
-    // Add text prompt
+    // Add text prompt first
     parts.push({ text: prompt })
 
-    // Add reference image if provided
-    if (options.referenceImage) {
-      const base64Image = options.referenceImage.toString('base64')
+    // Add all reference images in order (important for AC4 - order matters)
+    for (const imageBuffer of referenceImages) {
+      const base64Image = imageBuffer.toString('base64')
       parts.push({
         inline_data: {
           mime_type: 'image/jpeg',
           data: base64Image,
         },
       })
+    }
+
+    // Build generation config with aspectRatio if provided (AC4)
+    const generationConfig: Record<string, any> = {
+      responseModalities: ['TEXT', 'IMAGE'],
+    }
+
+    if (options.temperature) {
+      generationConfig.temperature = options.temperature
+    }
+
+    // Add imageConfig with aspectRatio if provided (AC4)
+    if (options.aspectRatio) {
+      generationConfig.imageConfig = {
+        aspectRatio: options.aspectRatio,
+      }
     }
 
     const response = await fetch(url, {
@@ -149,10 +184,7 @@ export const googleAIService = {
             parts,
           },
         ],
-        generationConfig: {
-          responseModalities: ['TEXT', 'IMAGE'],
-          ...(options.temperature && { temperature: options.temperature }),
-        },
+        generationConfig,
       }),
     })
 
@@ -184,7 +216,8 @@ export const googleAIService = {
       duration: `${duration}ms`,
       imageSize: imageBuffer.length,
       mimeType: imagePart.inlineData.mimeType,
-      hasReferenceImage,
+      referenceImageCount: referenceImages.length,
+      aspectRatio: options.aspectRatio,
     }, 'Gemini image generated successfully')
 
     return imageBuffer

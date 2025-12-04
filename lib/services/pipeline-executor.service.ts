@@ -1,5 +1,6 @@
 // Pipeline Executor Service
 // Orchestrates the execution of AI generation pipeline blocks
+// Story 4.9: Multi-image reference support
 
 import { logger } from '@/lib/logger'
 import { blobStorageService, CONTAINERS } from '@/lib/blob-storage'
@@ -9,6 +10,8 @@ import type { IAnimation, IPipelineBlock } from '@/models/Animation.model'
 import { openaiImageService } from '@/lib/services/openai-image.service'
 import { googleAIService } from '@/lib/services/google-ai.service'
 import { withRetry, isRetryableError } from '@/lib/utils/retry'
+import { PIPELINE_ERROR_CODES } from '@/lib/constants'
+import type { ReferenceImage, AspectRatio } from '@/lib/types'
 
 /**
  * Pipeline execution context with variables for prompt substitution
@@ -27,6 +30,7 @@ export interface BlockResult {
   blockId: string
   success: boolean
   imageBuffer?: Buffer
+  prompt?: string // Final prompt sent to AI after variable substitution
   error?: string
 }
 
@@ -36,6 +40,7 @@ export interface BlockResult {
 export interface PipelineResult {
   success: boolean
   finalImageBuffer?: Buffer
+  finalPrompt?: string // Final prompt sent to AI after variable substitution
   error?: {
     code: string
     message: string
@@ -46,13 +51,28 @@ export interface PipelineResult {
 
 /**
  * Error codes for pipeline execution
+ * Re-export from constants for backward compatibility
  */
-export const PIPELINE_ERRORS = {
-  TIMEOUT: 'GEN_5002',
-  API_ERROR: 'GEN_5003',
-  UNSUPPORTED_MODEL: 'GEN_5004',
-  INVALID_CONFIG: 'GEN_5005',
-} as const
+export const PIPELINE_ERRORS = PIPELINE_ERROR_CODES
+
+/**
+ * Resolved reference image with buffer
+ */
+export interface ResolvedImage {
+  name: string
+  source: string
+  buffer: Buffer
+  sizeBytes: number
+}
+
+/**
+ * Reference image logging info (AC9)
+ */
+export interface ReferenceImageLogInfo {
+  name: string
+  source: string
+  sizeBytes: number
+}
 
 /**
  * Pipeline execution timeout (120 seconds)
@@ -101,38 +121,206 @@ export function replaceVariables(text: string, context: ExecutionContext): strin
 }
 
 /**
- * Download selfie from Azure Blob Storage
+ * Replace image variable placeholders with "Image N" based on order (AC2)
+ * E.g., {selfie} → "Image 1", {logo} → "Image 2", {fond} → "Image 3"
+ *
+ * @param text - Text containing image variable placeholders
+ * @param referenceImages - Array of reference images sorted by order
+ * @returns Text with image variables replaced
  */
-async function downloadSelfie(selfieUrl: string): Promise<Buffer | null> {
-  try {
-    // Extract blob name from URL
-    // URL format: https://<account>.blob.core.windows.net/uploads/selfies/<generationId>.jpg
-    const urlObj = new URL(selfieUrl)
-    const pathParts = urlObj.pathname.split('/')
-    // Path: /uploads/selfies/<generationId>.jpg
-    if (pathParts[1] === 'uploads') {
-      const blobName = pathParts.slice(2).join('/')
-      return await blobStorageService.downloadFile(CONTAINERS.UPLOADS, blobName)
-    }
-    logger.error({ selfieUrl }, 'Invalid selfie URL format')
-    return null
-  } catch (error) {
-    logger.error({ error, selfieUrl }, 'Failed to download selfie')
-    return null
+export function replaceImageVariables(text: string, referenceImages: ReferenceImage[]): string {
+  if (!referenceImages || referenceImages.length === 0) {
+    return text
   }
+
+  // Sort by order to ensure consistent mapping
+  const sortedImages = [...referenceImages].sort((a, b) => a.order - b.order)
+
+  // Create mapping: name → "Image N"
+  const imageMapping: Record<string, string> = {}
+  sortedImages.forEach((img, index) => {
+    imageMapping[img.name.toLowerCase()] = `Image ${index + 1}`
+  })
+
+  // Replace {imageName} with "Image N"
+  return text.replace(/\{(\w+)\}/g, (match, key) => {
+    const lowerKey = key.toLowerCase()
+    if (imageMapping[lowerKey]) {
+      return imageMapping[lowerKey]
+    }
+    // Not an image variable, return as-is for replaceVariables to handle
+    return match
+  })
 }
 
 /**
- * Execute a single AI generation block
+ * Download image from external URL
+ */
+async function downloadFromUrl(url: string): Promise<Buffer> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to download image: HTTP ${response.status}`)
+  }
+  const arrayBuffer = await response.arrayBuffer()
+  return Buffer.from(arrayBuffer)
+}
+
+/**
+ * Resolve all reference images and return ordered buffers (AC1, AC7, AC8)
+ *
+ * @param referenceImages - Array of reference image configurations
+ * @param generation - Generation document with selfieUrl
+ * @param blockResults - Map of previous block results for ai-block-output source
+ * @returns Array of resolved images with buffers, sorted by order
+ */
+export async function resolveReferenceImages(
+  referenceImages: ReferenceImage[],
+  generation: IGeneration,
+  blockResults: Map<string, Buffer>
+): Promise<ResolvedImage[]> {
+  if (!referenceImages || referenceImages.length === 0) {
+    return []
+  }
+
+  const downloadStartTime = Date.now()
+  const resolvedImages: ResolvedImage[] = []
+
+  // Sort by order first
+  const sortedImages = [...referenceImages].sort((a, b) => a.order - b.order)
+
+  for (const refImage of sortedImages) {
+    try {
+      let buffer: Buffer
+
+      switch (refImage.source) {
+        case 'selfie':
+          // AC8: Selfie required but missing
+          if (!generation.selfieUrl) {
+            throw {
+              code: PIPELINE_ERRORS.SELFIE_REQUIRED_MISSING,
+              message: `Selfie requis mais non fourni par le participant`,
+            }
+          }
+          // Download selfie from Azure Blob Storage
+          const selfieUrl = new URL(generation.selfieUrl)
+          const selfiePath = selfieUrl.pathname.split('/')
+          if (selfiePath[1] === 'uploads') {
+            const blobName = selfiePath.slice(2).join('/')
+            buffer = await blobStorageService.downloadFile(CONTAINERS.UPLOADS, blobName)
+          } else {
+            // Fallback to direct URL download
+            buffer = await downloadFromUrl(generation.selfieUrl)
+          }
+          break
+
+        case 'upload':
+          // Download from Azure Blob Storage (uploaded during config)
+          if (!refImage.url) {
+            throw {
+              code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+              message: `Impossible de charger l'image de référence '${refImage.name}': URL manquante`,
+            }
+          }
+          const uploadUrl = new URL(refImage.url)
+          const uploadPath = uploadUrl.pathname.split('/')
+          if (uploadPath[1] === 'uploads') {
+            const blobName = uploadPath.slice(2).join('/')
+            buffer = await blobStorageService.downloadFile(CONTAINERS.UPLOADS, blobName)
+          } else {
+            buffer = await downloadFromUrl(refImage.url)
+          }
+          break
+
+        case 'url':
+          // Download from external URL
+          if (!refImage.url) {
+            throw {
+              code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+              message: `Impossible de charger l'image de référence '${refImage.name}': URL manquante`,
+            }
+          }
+          buffer = await downloadFromUrl(refImage.url)
+          break
+
+        case 'ai-block-output':
+          // Get from previous block result (AC6)
+          if (!refImage.sourceBlockId) {
+            throw {
+              code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+              message: `Impossible de charger l'image de référence '${refImage.name}': sourceBlockId manquant`,
+            }
+          }
+          const previousBuffer = blockResults.get(refImage.sourceBlockId)
+          if (!previousBuffer) {
+            throw {
+              code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+              message: `Impossible de charger l'image de référence '${refImage.name}': bloc source '${refImage.sourceBlockId}' non trouvé`,
+            }
+          }
+          buffer = previousBuffer
+          break
+
+        default:
+          throw {
+            code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+            message: `Impossible de charger l'image de référence '${refImage.name}': source inconnue '${refImage.source}'`,
+          }
+      }
+
+      resolvedImages.push({
+        name: refImage.name,
+        source: refImage.source,
+        buffer,
+        sizeBytes: buffer.length,
+      })
+    } catch (error: any) {
+      // AC7: Log error and rethrow with proper code
+      logger.error({
+        refImageName: refImage.name,
+        refImageSource: refImage.source,
+        error: error.message || error,
+      }, 'Failed to resolve reference image')
+
+      if (error.code) {
+        throw error
+      }
+
+      throw {
+        code: PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND,
+        message: `Impossible de charger l'image de référence '${refImage.name}': ${error.message || 'Erreur inconnue'}`,
+      }
+    }
+  }
+
+  const downloadTimeMs = Date.now() - downloadStartTime
+
+  // AC9: Log resolved images info
+  logger.info({
+    referenceImagesCount: resolvedImages.length,
+    referenceImages: resolvedImages.map(img => ({
+      name: img.name,
+      source: img.source,
+      sizeBytes: img.sizeBytes,
+    })),
+    downloadTimeMs,
+  }, 'Reference images resolved')
+
+  return resolvedImages
+}
+
+/**
+ * Execute a single AI generation block (Story 4.9 - Multi-image support)
+ * Supports AC1-AC9: reference images, prompt variable substitution, multi-model support
  */
 async function executeAIBlock(
   block: IPipelineBlock,
   context: ExecutionContext,
-  selfieBuffer: Buffer | null,
-  previousBlockResult: Buffer | null
+  generation: IGeneration,
+  blockResults: Map<string, Buffer>
 ): Promise<BlockResult> {
   const { config } = block
   const modelId = config.modelId
+  const apiStartTime = Date.now()
 
   if (!modelId || !config.promptTemplate) {
     return {
@@ -142,59 +330,70 @@ async function executeAIBlock(
     }
   }
 
-  // Replace variables in prompt
-  const prompt = replaceVariables(config.promptTemplate, context)
-
-  logger.info({
-    blockId: block.id,
-    modelId,
-    promptLength: prompt.length,
-    imageUsageMode: config.imageUsageMode,
-    imageSource: config.imageSource,
-  }, 'Executing AI block')
-
-  // Determine image source
-  let sourceImage: Buffer | null = null
-  if (config.imageUsageMode !== 'none') {
-    switch (config.imageSource) {
-      case 'selfie':
-        sourceImage = selfieBuffer
-        break
-      case 'ai-block-output':
-        sourceImage = previousBlockResult
-        break
-      case 'url':
-        // TODO: Download from URL if needed
-        break
-    }
-  }
+  // Get reference images from config (Story 4.8 format)
+  const referenceImages: ReferenceImage[] = config.referenceImages || []
+  const aspectRatio: AspectRatio = config.aspectRatio || '1:1'
 
   try {
+    // AC1: Resolve all reference images
+    const resolvedImages = await resolveReferenceImages(
+      referenceImages,
+      generation,
+      blockResults
+    )
+
+    // AC2: Replace image variables in prompt ({selfie} → "Image 1", etc.)
+    let processedPrompt = replaceImageVariables(config.promptTemplate, referenceImages)
+
+    // Replace participant variables ({nom}, {prenom}, etc.)
+    processedPrompt = replaceVariables(processedPrompt, context)
+
+    // Get image buffers for API call
+    const imageBuffers = resolvedImages.map(img => img.buffer)
+
+    // AC9: Detailed logging
+    logger.info({
+      blockId: block.id,
+      modelId,
+      aspectRatio,
+      promptLength: processedPrompt.length,
+      referenceImagesCount: resolvedImages.length,
+      referenceImages: resolvedImages.map(img => ({
+        name: img.name,
+        source: img.source,
+        sizeBytes: img.sizeBytes,
+      })),
+    }, 'Executing AI block')
+
     let imageBuffer: Buffer
 
-    // Execute based on model
+    // Execute based on model (AC3, AC4, AC5)
     switch (modelId) {
       case 'gpt-image-1':
-        // GPT Image 1: Supports text-to-image, reference, and edit modes
-        if (config.imageUsageMode === 'edit' && sourceImage) {
+        // AC3 & AC5: GPT Image 1
+        if (imageBuffers.length > 0) {
+          // Image-to-image with reference images
+          // OpenAI only supports '1:1', '2:3', '3:2' - cast type for compatibility
+          const openaiAspectRatio = aspectRatio as '1:1' | '2:3' | '3:2'
           imageBuffer = await withRetry(
-            () => openaiImageService.editImage(sourceImage!, prompt, { size: '1024x1024' }),
+            () => openaiImageService.editImage(imageBuffers, processedPrompt, { aspectRatio: openaiAspectRatio }),
             { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
           )
         } else {
-          // Text-to-image mode
+          // AC5: Text-to-image mode (no reference images)
           imageBuffer = await withRetry(
-            () => openaiImageService.generateImage(prompt, { size: '1024x1024' }),
+            () => openaiImageService.generateImage(processedPrompt, { size: '1024x1024' }),
             { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
           )
         }
         break
 
       case 'gemini-2.5-flash-image':
-        // Gemini 2.5 Flash Image: Supports text-to-image AND image-to-image with reference
+        // AC4 & AC5: Gemini 2.5 Flash Image
         imageBuffer = await withRetry(
-          () => googleAIService.generateImageWithGemini(prompt, {
-            referenceImage: sourceImage || undefined,
+          () => googleAIService.generateImageWithGemini(processedPrompt, {
+            referenceImages: imageBuffers.length > 0 ? imageBuffers : undefined,
+            aspectRatio,
           }),
           { maxRetries: 3, baseDelayMs: 2000, shouldRetry: isRetryableError }
         )
@@ -209,28 +408,43 @@ async function executeAIBlock(
         }
     }
 
+    const apiCallTimeMs = Date.now() - apiStartTime
+
+    // AC6: Store result for chaining
+    blockResults.set(block.id, imageBuffer)
+
+    // AC9: Detailed success logging
     logger.info({
       blockId: block.id,
       modelId,
+      aspectRatio,
       imageSize: imageBuffer.length,
+      referenceImagesCount: resolvedImages.length,
+      apiCallTimeMs,
     }, 'AI block executed successfully')
 
     return {
       blockId: block.id,
       success: true,
       imageBuffer,
+      prompt: processedPrompt,
     }
   } catch (error: any) {
+    // Handle structured errors (AC7, AC8)
+    const errorCode = error.code || PIPELINE_ERRORS.API_ERROR
+    const errorMessage = error.message || 'AI generation failed'
+
     logger.error({
       blockId: block.id,
       modelId,
-      error: error.message,
+      errorCode,
+      error: errorMessage,
     }, 'AI block execution failed')
 
     return {
       blockId: block.id,
       success: false,
-      error: error.message,
+      error: errorMessage,
     }
   }
 }
@@ -238,6 +452,7 @@ async function executeAIBlock(
 /**
  * Execute the full pipeline for a generation
  * Orchestrates block execution, handles chaining, timeout, and error handling
+ * Story 4.9: Updated to use blockResults Map for multi-image chaining
  */
 export async function executePipeline(
   generation: IGeneration,
@@ -245,7 +460,9 @@ export async function executePipeline(
 ): Promise<PipelineResult> {
   const startTime = Date.now()
   const generationId = generation._id.toString()
-  const blockResults: BlockResult[] = []
+  const blockResultsList: BlockResult[] = []
+  // AC6: Map to store block results for chaining
+  const blockResultsMap = new Map<string, Buffer>()
 
   logger.info({
     generationId,
@@ -260,13 +477,6 @@ export async function executePipeline(
     // Build execution context
     const context = buildExecutionContext(generation.participantData as ParticipantData)
 
-    // Load selfie if present
-    let selfieBuffer: Buffer | null = null
-    if (generation.selfieUrl) {
-      selfieBuffer = await downloadSelfie(generation.selfieUrl)
-      logger.info({ generationId, hasSelfie: !!selfieBuffer }, 'Selfie loaded')
-    }
-
     // Get AI generation blocks sorted by order
     const aiBlocks = animation.pipeline
       .filter(block => block.type === 'ai-generation')
@@ -279,13 +489,14 @@ export async function executePipeline(
           code: PIPELINE_ERRORS.INVALID_CONFIG,
           message: 'No AI generation blocks configured in pipeline',
         },
-        blockResults,
+        blockResults: blockResultsList,
         executionTimeMs: Date.now() - startTime,
       }
     }
 
     // Execute blocks sequentially with timeout
-    let previousResult: Buffer | null = null
+    let lastSuccessfulBuffer: Buffer | null = null
+    let lastSuccessfulPrompt: string | undefined = undefined
 
     for (const block of aiBlocks) {
       // Check timeout
@@ -303,14 +514,14 @@ export async function executePipeline(
             code: PIPELINE_ERRORS.TIMEOUT,
             message: 'Timeout de génération dépassé (120s)',
           },
-          blockResults,
+          blockResults: blockResultsList,
           executionTimeMs: elapsed,
         }
       }
 
-      // Execute block
-      const result = await executeAIBlock(block, context, selfieBuffer, previousResult)
-      blockResults.push(result)
+      // Execute block with new signature (Story 4.9)
+      const result = await executeAIBlock(block, context, generation, blockResultsMap)
+      blockResultsList.push(result)
 
       if (!result.success) {
         // Block failed - stop pipeline
@@ -320,36 +531,45 @@ export async function executePipeline(
             code: PIPELINE_ERRORS.API_ERROR,
             message: result.error || 'AI generation failed',
           },
-          blockResults,
+          blockResults: blockResultsList,
           executionTimeMs: Date.now() - startTime,
         }
       }
 
-      // Pass result to next block (for chaining)
-      previousResult = result.imageBuffer || null
+      // Track last successful buffer and prompt for final output
+      if (result.imageBuffer) {
+        lastSuccessfulBuffer = result.imageBuffer
+        lastSuccessfulPrompt = result.prompt
+      }
     }
 
     // Pipeline completed successfully
     const executionTimeMs = Date.now() - startTime
 
+    // AC9: Final logging
     logger.info({
       generationId,
       executionTimeMs,
-      blocksExecuted: blockResults.length,
+      blocksExecuted: blockResultsList.length,
     }, 'Pipeline execution completed successfully')
 
     return {
       success: true,
-      finalImageBuffer: previousResult || undefined,
-      blockResults,
+      finalImageBuffer: lastSuccessfulBuffer || undefined,
+      finalPrompt: lastSuccessfulPrompt,
+      blockResults: blockResultsList,
       executionTimeMs,
     }
   } catch (error: any) {
     const executionTimeMs = Date.now() - startTime
 
+    // Handle structured errors (AC7, AC8)
+    const errorCode = error.code || PIPELINE_ERRORS.API_ERROR
+
     logger.error({
       generationId,
       executionTimeMs,
+      errorCode,
       error: error.message,
       stack: error.stack,
     }, 'Pipeline execution failed with unexpected error')
@@ -357,10 +577,10 @@ export async function executePipeline(
     return {
       success: false,
       error: {
-        code: PIPELINE_ERRORS.API_ERROR,
+        code: errorCode,
         message: error.message || 'Unexpected pipeline error',
       },
-      blockResults,
+      blockResults: blockResultsList,
       executionTimeMs,
     }
   }
@@ -373,4 +593,6 @@ export const pipelineExecutorService = {
   executePipeline,
   buildExecutionContext,
   replaceVariables,
+  replaceImageVariables,
+  resolveReferenceImages,
 }

@@ -16,6 +16,7 @@ export interface IGeneration extends Document {
   selfieUrl?: string // Original image uploaded by participant (Azure Blob URL)
   status: GenerationStatus
   generatedImageUrl?: string // AI-generated image (Azure Blob URL)
+  finalPrompt?: string // Final prompt sent to AI after variable substitution
   error?: string
   createdAt: Date
   updatedAt: Date
@@ -50,6 +51,10 @@ const GenerationSchema = new Schema<IGeneration>(
       required: true
     },
     generatedImageUrl: {
+      type: String,
+      default: undefined
+    },
+    finalPrompt: {
       type: String,
       default: undefined
     },

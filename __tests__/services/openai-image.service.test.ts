@@ -119,7 +119,7 @@ describe('openai-image.service', () => {
   describe('editImage (GPT Image 1)', () => {
     const testImageBuffer = Buffer.from('fake-image-data')
 
-    it('should call OpenAI API with FormData for image edit', async () => {
+    it('should call OpenAI API with FormData for single image edit', async () => {
       const mockImageUrl = 'https://example.com/edited.png'
       const mockResultBuffer = Buffer.from('edited-image-data')
 
@@ -133,7 +133,8 @@ describe('openai-image.service', () => {
           arrayBuffer: () => Promise.resolve(mockResultBuffer.buffer),
         })
 
-      await openaiImageService.editImage(testImageBuffer, 'Transform to cartoon')
+      // Now accepts array of buffers
+      await openaiImageService.editImage([testImageBuffer], 'Transform to cartoon')
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.openai.com/v1/images/edits',
@@ -150,6 +151,94 @@ describe('openai-image.service', () => {
       expect(requestBody).toBeInstanceOf(FormData)
     })
 
+    it('should handle multiple images for multi-reference edit (AC3)', async () => {
+      const mockImageUrl = 'https://example.com/edited.png'
+      const mockResultBuffer = Buffer.from('edited-image-data')
+      const image1 = Buffer.from('image-1-data')
+      const image2 = Buffer.from('image-2-data')
+      const image3 = Buffer.from('image-3-data')
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ data: [{ url: mockImageUrl }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(mockResultBuffer.buffer),
+        })
+
+      await openaiImageService.editImage(
+        [image1, image2, image3],
+        'Combine Image 1 with Image 2 and Image 3'
+      )
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.openai.com/v1/images/edits',
+        expect.objectContaining({
+          method: 'POST',
+        })
+      )
+
+      // Verify FormData was used with multiple images
+      const requestBody = mockFetch.mock.calls[0][1].body
+      expect(requestBody).toBeInstanceOf(FormData)
+    })
+
+    it('should map aspectRatio to correct size (AC3)', async () => {
+      const base64Image = Buffer.from('result-image').toString('base64')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ b64_json: base64Image }] }),
+      })
+
+      await openaiImageService.editImage(
+        [testImageBuffer],
+        'Transform',
+        { aspectRatio: '2:3' }
+      )
+
+      const requestBody = mockFetch.mock.calls[0][1].body as FormData
+      expect(requestBody.get('size')).toBe('1024x1536')
+    })
+
+    it('should use 1:1 aspectRatio mapping correctly', async () => {
+      const base64Image = Buffer.from('result-image').toString('base64')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ b64_json: base64Image }] }),
+      })
+
+      await openaiImageService.editImage(
+        [testImageBuffer],
+        'Transform',
+        { aspectRatio: '1:1' }
+      )
+
+      const requestBody = mockFetch.mock.calls[0][1].body as FormData
+      expect(requestBody.get('size')).toBe('1024x1024')
+    })
+
+    it('should use 3:2 aspectRatio mapping correctly', async () => {
+      const base64Image = Buffer.from('result-image').toString('base64')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ b64_json: base64Image }] }),
+      })
+
+      await openaiImageService.editImage(
+        [testImageBuffer],
+        'Transform',
+        { aspectRatio: '3:2' }
+      )
+
+      const requestBody = mockFetch.mock.calls[0][1].body as FormData
+      expect(requestBody.get('size')).toBe('1536x1024')
+    })
+
     it('should handle base64 response format', async () => {
       const base64Image = Buffer.from('result-image').toString('base64')
 
@@ -159,7 +248,7 @@ describe('openai-image.service', () => {
       })
 
       const result = await openaiImageService.editImage(
-        testImageBuffer,
+        [testImageBuffer],
         'Transform'
       )
 
@@ -174,8 +263,22 @@ describe('openai-image.service', () => {
       })
 
       await expect(
-        openaiImageService.editImage(testImageBuffer, 'Transform')
+        openaiImageService.editImage([testImageBuffer], 'Transform')
       ).rejects.toThrow('No image data returned from OpenAI')
+    })
+
+    it('should default to 1024x1024 when no aspectRatio or size provided', async () => {
+      const base64Image = Buffer.from('result-image').toString('base64')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ b64_json: base64Image }] }),
+      })
+
+      await openaiImageService.editImage([testImageBuffer], 'Transform')
+
+      const requestBody = mockFetch.mock.calls[0][1].body as FormData
+      expect(requestBody.get('size')).toBe('1024x1024')
     })
   })
 })

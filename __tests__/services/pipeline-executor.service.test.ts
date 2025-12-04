@@ -2,9 +2,13 @@
 import {
   buildExecutionContext,
   replaceVariables,
+  replaceImageVariables,
+  resolveReferenceImages,
   PIPELINE_ERRORS,
 } from '@/lib/services/pipeline-executor.service'
 import type { ParticipantData } from '@/lib/services/generation.service'
+import type { ReferenceImage } from '@/lib/types'
+import type { IGeneration } from '@/models/Generation.model'
 
 // Mock all dependencies
 jest.mock('@/lib/logger', () => ({
@@ -201,6 +205,199 @@ Email pour contact: {email}`
       expect(PIPELINE_ERRORS.API_ERROR).toBe('GEN_5003')
       expect(PIPELINE_ERRORS.UNSUPPORTED_MODEL).toBe('GEN_5004')
       expect(PIPELINE_ERRORS.INVALID_CONFIG).toBe('GEN_5005')
+    })
+
+    it('should have new error codes for Story 4.9 (AC7, AC8)', () => {
+      expect(PIPELINE_ERRORS.REFERENCE_IMAGE_NOT_FOUND).toBe('GEN_5006')
+      expect(PIPELINE_ERRORS.SELFIE_REQUIRED_MISSING).toBe('GEN_5007')
+    })
+  })
+
+  describe('replaceImageVariables (AC2)', () => {
+    it('should replace single image variable with Image N', () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+      ]
+
+      const result = replaceImageVariables('Transform {selfie} into art', referenceImages)
+      expect(result).toBe('Transform Image 1 into art')
+    })
+
+    it('should replace multiple image variables according to order', () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+        { id: '2', name: 'logo', source: 'upload', order: 2 },
+        { id: '3', name: 'fond', source: 'url', url: 'http://example.com/bg.jpg', order: 3 },
+      ]
+
+      const result = replaceImageVariables(
+        'Combine {selfie} with {logo} watermark and {fond} background',
+        referenceImages
+      )
+      expect(result).toBe('Combine Image 1 with Image 2 watermark and Image 3 background')
+    })
+
+    it('should handle unordered images and sort by order', () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '3', name: 'fond', source: 'url', url: 'http://example.com/bg.jpg', order: 3 },
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+        { id: '2', name: 'logo', source: 'upload', order: 2 },
+      ]
+
+      const result = replaceImageVariables('{selfie} + {logo} + {fond}', referenceImages)
+      expect(result).toBe('Image 1 + Image 2 + Image 3')
+    })
+
+    it('should be case-insensitive for image names', () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'Selfie', source: 'selfie', order: 1 },
+      ]
+
+      const result = replaceImageVariables('{SELFIE} and {selfie}', referenceImages)
+      expect(result).toBe('Image 1 and Image 1')
+    })
+
+    it('should leave non-image variables untouched for replaceVariables', () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+      ]
+
+      const result = replaceImageVariables('{selfie} de {nom}', referenceImages)
+      expect(result).toBe('Image 1 de {nom}')
+    })
+
+    it('should return original text if no reference images', () => {
+      const result = replaceImageVariables('No images {selfie}', [])
+      expect(result).toBe('No images {selfie}')
+    })
+
+    it('should return original text if reference images is undefined', () => {
+      const result = replaceImageVariables('No images {selfie}', undefined as any)
+      expect(result).toBe('No images {selfie}')
+    })
+  })
+
+  describe('resolveReferenceImages (AC1, AC7, AC8)', () => {
+    const mockBlobStorageService = require('@/lib/blob-storage').blobStorageService
+
+    beforeEach(() => {
+      mockBlobStorageService.downloadFile.mockReset()
+    })
+
+    it('should return empty array if no reference images', async () => {
+      const generation = { selfieUrl: 'http://example.com/selfie.jpg' } as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      const result = await resolveReferenceImages([], generation, blockResults)
+      expect(result).toEqual([])
+    })
+
+    it('should resolve selfie source from generation.selfieUrl (AC1)', async () => {
+      const selfieBuffer = Buffer.from('selfie-data')
+      mockBlobStorageService.downloadFile.mockResolvedValueOnce(selfieBuffer)
+
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+      ]
+      const generation = {
+        selfieUrl: 'https://storage.blob.core.windows.net/uploads/selfies/123.jpg',
+      } as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      const result = await resolveReferenceImages(referenceImages, generation, blockResults)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('selfie')
+      expect(result[0].source).toBe('selfie')
+      expect(result[0].buffer).toBe(selfieBuffer)
+      expect(result[0].sizeBytes).toBe(selfieBuffer.length)
+    })
+
+    it('should throw GEN_5007 if selfie required but not provided (AC8)', async () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+      ]
+      const generation = { selfieUrl: null } as unknown as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      await expect(
+        resolveReferenceImages(referenceImages, generation, blockResults)
+      ).rejects.toMatchObject({
+        code: 'GEN_5007',
+        message: expect.stringContaining('Selfie requis'),
+      })
+    })
+
+    it('should resolve ai-block-output source from blockResults (AC6)', async () => {
+      const previousBuffer = Buffer.from('previous-block-output')
+      const referenceImages: ReferenceImage[] = [
+        { id: '2', name: 'base', source: 'ai-block-output', sourceBlockId: 'block-1', order: 1 },
+      ]
+      const generation = {} as IGeneration
+      const blockResults = new Map<string, Buffer>([['block-1', previousBuffer]])
+
+      const result = await resolveReferenceImages(referenceImages, generation, blockResults)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('base')
+      expect(result[0].buffer).toBe(previousBuffer)
+    })
+
+    it('should throw GEN_5006 if ai-block-output source not found (AC7)', async () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '2', name: 'base', source: 'ai-block-output', sourceBlockId: 'missing-block', order: 1 },
+      ]
+      const generation = {} as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      await expect(
+        resolveReferenceImages(referenceImages, generation, blockResults)
+      ).rejects.toMatchObject({
+        code: 'GEN_5006',
+        message: expect.stringContaining("bloc source 'missing-block' non trouvé"),
+      })
+    })
+
+    it('should throw GEN_5006 if upload URL is missing (AC7)', async () => {
+      const referenceImages: ReferenceImage[] = [
+        { id: '2', name: 'logo', source: 'upload', order: 1 },  // Missing url
+      ]
+      const generation = {} as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      await expect(
+        resolveReferenceImages(referenceImages, generation, blockResults)
+      ).rejects.toMatchObject({
+        code: 'GEN_5006',
+        message: expect.stringContaining('URL manquante'),
+      })
+    })
+
+    it('should resolve multiple images and sort by order', async () => {
+      const selfieBuffer = Buffer.from('selfie-data')
+      const logoBuffer = Buffer.from('logo-data')
+
+      mockBlobStorageService.downloadFile
+        .mockResolvedValueOnce(selfieBuffer)
+        .mockResolvedValueOnce(logoBuffer)
+
+      const referenceImages: ReferenceImage[] = [
+        { id: '2', name: 'logo', source: 'upload', url: 'https://storage.blob.core.windows.net/uploads/logos/logo.png', order: 2 },
+        { id: '1', name: 'selfie', source: 'selfie', order: 1 },
+      ]
+      const generation = {
+        selfieUrl: 'https://storage.blob.core.windows.net/uploads/selfies/123.jpg',
+      } as IGeneration
+      const blockResults = new Map<string, Buffer>()
+
+      const result = await resolveReferenceImages(referenceImages, generation, blockResults)
+
+      expect(result).toHaveLength(2)
+      // Should be sorted by order
+      expect(result[0].name).toBe('selfie')
+      expect(result[0].buffer).toBe(selfieBuffer)
+      expect(result[1].name).toBe('logo')
+      expect(result[1].buffer).toBe(logoBuffer)
     })
   })
 })

@@ -244,14 +244,14 @@ export const openaiImageService = {
     formData.append('n', '1')
 
     // Add images as files (multiple images for multi-reference)
-    // GPT Image 1 accepts multiple images via the 'image' field
+    // GPT Image 1 accepts multiple images via the 'image[]' field (array syntax)
     images.forEach((imageBuffer, index) => {
       const arrayBuffer = imageBuffer.buffer.slice(
         imageBuffer.byteOffset,
         imageBuffer.byteOffset + imageBuffer.byteLength
       ) as ArrayBuffer
       const imageBlob = new Blob([arrayBuffer], { type: 'image/png' })
-      formData.append('image', imageBlob, `image_${index}.png`)
+      formData.append('image[]', imageBlob, `image_${index}.png`)
     })
 
     const response = await fetch('https://api.openai.com/v1/images/edits', {

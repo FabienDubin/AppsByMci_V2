@@ -37,13 +37,14 @@ export async function runPipelineForGeneration(
         generationId
       )
 
-      // Update generation with result
-      await generationService.updateGenerationResult(generationId, resultUrl)
+      // Update generation with result and final prompt
+      await generationService.updateGenerationResult(generationId, resultUrl, result.finalPrompt)
 
       logger.info({
         generationId,
         executionTimeMs: result.executionTimeMs,
         resultUrl,
+        finalPromptLength: result.finalPrompt?.length,
       }, 'Pipeline completed successfully')
     } else {
       // Pipeline failed

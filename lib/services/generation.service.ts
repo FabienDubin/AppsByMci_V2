@@ -123,11 +123,13 @@ export const generationService = {
    * Update generation with successful result
    * @param generationId - Generation document ID
    * @param resultUrl - URL of the generated image
+   * @param finalPrompt - Optional final prompt sent to AI after variable substitution
    * @returns Updated generation or null
    */
   async updateGenerationResult(
     generationId: string,
-    resultUrl: string
+    resultUrl: string,
+    finalPrompt?: string
   ): Promise<IGeneration | null> {
     await connectDatabase()
 
@@ -135,13 +137,19 @@ export const generationService = {
       return null
     }
 
+    const updateData: Record<string, unknown> = {
+      status: 'completed',
+      generatedImageUrl: resultUrl,
+      completedAt: new Date(),
+    }
+
+    if (finalPrompt) {
+      updateData.finalPrompt = finalPrompt
+    }
+
     const generation = await Generation.findByIdAndUpdate(
       generationId,
-      {
-        status: 'completed',
-        generatedImageUrl: resultUrl,
-        completedAt: new Date(),
-      },
+      updateData,
       { new: true }
     )
 
@@ -150,6 +158,7 @@ export const generationService = {
         msg: 'Generation completed',
         generationId,
         resultUrl,
+        finalPromptLength: finalPrompt?.length,
       })
     }
 
