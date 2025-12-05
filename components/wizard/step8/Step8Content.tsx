@@ -218,6 +218,7 @@ export function Step8Content({
       <PublishSuccessModal
         open={showSuccessModal}
         onOpenChange={setShowSuccessModal}
+        animationId={animationId || ''}
         animationName={animationData.name || 'Sans nom'}
         publicUrl={publishedData?.publicUrl || ''}
         qrCodeUrl={publishedData?.qrCodeUrl}

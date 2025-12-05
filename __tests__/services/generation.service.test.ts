@@ -319,4 +319,161 @@ describe('GenerationService', () => {
       expect(result.size).toBe(0)
     })
   })
+
+  describe('getAnimationDetailStats', () => {
+    const animationId = '507f1f77bcf86cd799439011'
+
+    it('should return detailed stats for animation with generations', async () => {
+      mockAggregate.mockResolvedValue([
+        {
+          _id: null,
+          totalParticipations: 100,
+          successfulGenerations: 85,
+          failedGenerations: 10,
+          avgGenerationTime: 15.5,
+          emailsSent: 75,
+        },
+      ])
+
+      const result = await generationService.getAnimationDetailStats(animationId)
+
+      expect(mockAggregate).toHaveBeenCalled()
+      expect(result).toEqual({
+        totalParticipations: 100,
+        successfulGenerations: 85,
+        failedGenerations: 10,
+        successRate: 85,
+        averageGenerationTime: 16, // Rounded
+        emailsSent: 75,
+      })
+    })
+
+    it('should return zero stats for animation without generations', async () => {
+      mockAggregate.mockResolvedValue([])
+
+      const result = await generationService.getAnimationDetailStats(animationId)
+
+      expect(result).toEqual({
+        totalParticipations: 0,
+        successfulGenerations: 0,
+        failedGenerations: 0,
+        successRate: 0,
+        averageGenerationTime: 0,
+        emailsSent: 0,
+      })
+    })
+
+    it('should return zero stats for invalid animation ID', async () => {
+      const result = await generationService.getAnimationDetailStats('invalid-id')
+
+      expect(mockAggregate).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        totalParticipations: 0,
+        successfulGenerations: 0,
+        failedGenerations: 0,
+        successRate: 0,
+        averageGenerationTime: 0,
+        emailsSent: 0,
+      })
+    })
+
+    it('should calculate success rate correctly', async () => {
+      mockAggregate.mockResolvedValue([
+        {
+          _id: null,
+          totalParticipations: 200,
+          successfulGenerations: 150,
+          failedGenerations: 50,
+          avgGenerationTime: 10,
+          emailsSent: 100,
+        },
+      ])
+
+      const result = await generationService.getAnimationDetailStats(animationId)
+
+      expect(result.successRate).toBe(75) // 150/200 * 100 = 75%
+    })
+
+    it('should handle null avgGenerationTime', async () => {
+      mockAggregate.mockResolvedValue([
+        {
+          _id: null,
+          totalParticipations: 5,
+          successfulGenerations: 0,
+          failedGenerations: 5,
+          avgGenerationTime: null,
+          emailsSent: 0,
+        },
+      ])
+
+      const result = await generationService.getAnimationDetailStats(animationId)
+
+      expect(result.averageGenerationTime).toBe(0)
+    })
+  })
+
+  describe('getAnimationTimeline', () => {
+    const animationId = '507f1f77bcf86cd799439011'
+
+    it('should return timeline data grouped by date', async () => {
+      mockAggregate.mockResolvedValue([
+        { _id: '2025-12-03', count: 10 },
+        { _id: '2025-12-04', count: 15 },
+        { _id: '2025-12-05', count: 8 },
+      ])
+
+      const result = await generationService.getAnimationTimeline(animationId, '30d')
+
+      expect(mockAggregate).toHaveBeenCalled()
+      expect(result).toEqual({
+        period: '30d',
+        data: [
+          { date: '2025-12-03', count: 10 },
+          { date: '2025-12-04', count: 15 },
+          { date: '2025-12-05', count: 8 },
+        ],
+      })
+    })
+
+    it('should return empty data for animation without generations', async () => {
+      mockAggregate.mockResolvedValue([])
+
+      const result = await generationService.getAnimationTimeline(animationId, '7d')
+
+      expect(result).toEqual({
+        period: '7d',
+        data: [],
+      })
+    })
+
+    it('should use default period of 30d', async () => {
+      mockAggregate.mockResolvedValue([])
+
+      const result = await generationService.getAnimationTimeline(animationId)
+
+      expect(result.period).toBe('30d')
+    })
+
+    it('should return empty data for invalid animation ID', async () => {
+      const result = await generationService.getAnimationTimeline('invalid-id', '30d')
+
+      expect(mockAggregate).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        period: '30d',
+        data: [],
+      })
+    })
+
+    it('should handle all period without date filter', async () => {
+      mockAggregate.mockResolvedValue([
+        { _id: '2025-11-01', count: 5 },
+        { _id: '2025-12-05', count: 20 },
+      ])
+
+      const result = await generationService.getAnimationTimeline(animationId, 'all')
+
+      expect(result.period).toBe('all')
+      expect(result.data).toHaveLength(2)
+    })
+  })
 })

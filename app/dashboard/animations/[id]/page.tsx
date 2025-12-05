@@ -1,67 +1,77 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, Pencil, Construction } from 'lucide-react'
+// Animation Details Page (Story 5.2)
+// Displays animation info, stats, timeline, and quick actions
+import { useParams } from 'next/navigation'
+import { useCallback } from 'react'
+import {
+  AnimationHeader,
+  AnimationInfoCard,
+  QrCodeCard,
+  StatsCards,
+  TimelineChart,
+  ActionButtons,
+} from './_components'
+import {
+  useAnimationDetails,
+  useAnimationStats,
+  useAnimationTimeline,
+} from './_hooks'
 
-/**
- * Animation Details Page - Placeholder for Story 5.2
- * This page will display animation statistics, timeline, and quick actions.
- */
 export default function AnimationDetailsPage() {
   const params = useParams()
-  const router = useRouter()
   const animationId = params.id as string
 
+  // Fetch animation details
+  const { animation, loading: animationLoading, refetch: refetchAnimation } = useAnimationDetails(animationId)
+
+  // Fetch stats with optional polling for real-time updates
+  const { stats, loading: statsLoading } = useAnimationStats(animationId, {
+    enablePolling: true,
+    pollingInterval: 30000, // 30 seconds
+  })
+
+  // Fetch timeline data
+  const { timeline, loading: timelineLoading, period, setPeriod } = useAnimationTimeline(animationId)
+
+  // Handle status change (archive/restore)
+  const handleStatusChange = useCallback(() => {
+    refetchAnimation()
+  }, [refetchAnimation])
+
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-4xl">
-        {/* Header with back button */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour au dashboard
-          </Button>
-        </div>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        {/* Header with name, badge, back button */}
+        <AnimationHeader animation={animation} loading={animationLoading} />
 
-        {/* Placeholder content */}
-        <div className="rounded-lg border bg-card p-12 text-center">
-          <Construction className="h-16 w-16 mx-auto mb-6 text-muted-foreground" />
-          <h1 className="text-2xl font-bold mb-4">Détails de l'animation</h1>
-          <p className="text-muted-foreground mb-6">
-            Cette page affichera les statistiques détaillées de l'animation,
-            le graphique timeline des participations, et les actions rapides.
-          </p>
-          <p className="text-sm text-muted-foreground mb-8">
-            ID: {animationId}
-          </p>
-
-          {/* Story 5.2 Preview */}
-          <div className="bg-muted/50 rounded-lg p-6 mb-8 text-left">
-            <h2 className="font-semibold mb-4">Fonctionnalités prévues (Story 5.2)</h2>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li>- Header avec nom, badges statut, actions</li>
-              <li>- Section infos générales avec slug cliquable, QR code téléchargeable</li>
-              <li>- Stats cards : participations, réussies, échouées, taux succès, temps moyen, emails</li>
-              <li>- Graphique timeline avec filtre période (7j/30j/all)</li>
-              <li>- Boutons actions rapides vers résultats et exports</li>
-            </ul>
+        {/* Info and QR code cards in grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <AnimationInfoCard animation={animation} loading={animationLoading} />
           </div>
-
-          {/* Quick action */}
-          <Button
-            onClick={() => router.push(`/dashboard/animations/${animationId}/edit`)}
-            className="gap-2"
-          >
-            <Pencil className="h-4 w-4" />
-            Éditer l'animation
-          </Button>
+          <div className="md:col-span-1">
+            <QrCodeCard animation={animation} loading={animationLoading} />
+          </div>
         </div>
+
+        {/* Stats cards */}
+        <StatsCards stats={stats} loading={statsLoading} />
+
+        {/* Timeline chart */}
+        <TimelineChart
+          timeline={timeline}
+          loading={timelineLoading}
+          period={period}
+          onPeriodChange={setPeriod}
+        />
+
+        {/* Action buttons */}
+        <ActionButtons
+          animation={animation}
+          loading={animationLoading}
+          onStatusChange={handleStatusChange}
+        />
       </div>
     </div>
   )

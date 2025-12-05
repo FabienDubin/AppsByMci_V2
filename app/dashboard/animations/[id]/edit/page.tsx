@@ -75,9 +75,22 @@ export default function EditAnimationPage({ params }: { params: Promise<{ id: st
 
   // Download QR code
   const handleDownloadQrCode = async () => {
-    if (existingQrCodeUrl) {
+    if (existingQrCodeUrl && animationId) {
       try {
-        const response = await fetch(existingQrCodeUrl)
+        const token = getAccessToken()
+
+        // Use API endpoint to download (avoids CORS issues with Azure Blob)
+        const response = await fetch(`/api/animations/${animationId}/qrcode`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error?.message || 'Erreur lors du téléchargement')
+        }
+
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -341,6 +354,7 @@ export default function EditAnimationPage({ params }: { params: Promise<{ id: st
       <PublishSuccessModal
         open={showPublishSuccess}
         onOpenChange={setShowPublishSuccess}
+        animationId={animationId}
         animationName={animationData.name || ''}
         publicUrl={`${process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'}/a/${
           animationData.slug || ''

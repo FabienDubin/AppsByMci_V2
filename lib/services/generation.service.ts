@@ -312,4 +312,174 @@ export const generationService = {
 
     return statsMap
   },
+
+  /**
+   * Get detailed animation statistics for animation details page (Story 5.2 AC3)
+   * Includes: totalParticipations, successfulGenerations, failedGenerations,
+   * successRate, averageGenerationTime, emailsSent
+   * @param animationId - Animation ID
+   * @returns AnimationDetailStats object
+   */
+  async getAnimationDetailStats(animationId: string): Promise<{
+    totalParticipations: number
+    successfulGenerations: number
+    failedGenerations: number
+    successRate: number
+    averageGenerationTime: number
+    emailsSent: number
+  }> {
+    await connectDatabase()
+
+    // Validate animation ID format
+    if (!mongoose.Types.ObjectId.isValid(animationId)) {
+      return {
+        totalParticipations: 0,
+        successfulGenerations: 0,
+        failedGenerations: 0,
+        successRate: 0,
+        averageGenerationTime: 0,
+        emailsSent: 0,
+      }
+    }
+
+    const objectId = new mongoose.Types.ObjectId(animationId)
+
+    // Aggregate to get detailed stats
+    const stats = await Generation.aggregate([
+      {
+        $match: {
+          animationId: objectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalParticipations: { $sum: 1 },
+          successfulGenerations: {
+            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] },
+          },
+          failedGenerations: {
+            $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] },
+          },
+          // Calculate average generation time for completed generations
+          avgGenerationTime: {
+            $avg: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$status', 'completed'] },
+                    { $ne: ['$completedAt', null] },
+                    { $ne: ['$createdAt', null] },
+                  ],
+                },
+                { $divide: [{ $subtract: ['$completedAt', '$createdAt'] }, 1000] },
+                null,
+              ],
+            },
+          },
+          // Count emails sent successfully
+          emailsSent: {
+            $sum: { $cond: [{ $eq: ['$emailSent', true] }, 1, 0] },
+          },
+        },
+      },
+    ])
+
+    // Default values if no generations
+    if (stats.length === 0) {
+      return {
+        totalParticipations: 0,
+        successfulGenerations: 0,
+        failedGenerations: 0,
+        successRate: 0,
+        averageGenerationTime: 0,
+        emailsSent: 0,
+      }
+    }
+
+    const result = stats[0]
+    const successRate =
+      result.totalParticipations > 0
+        ? Math.round((result.successfulGenerations / result.totalParticipations) * 100)
+        : 0
+
+    logger.info({
+      msg: 'Animation detail stats retrieved',
+      animationId,
+      totalParticipations: result.totalParticipations,
+      successRate,
+    })
+
+    return {
+      totalParticipations: result.totalParticipations,
+      successfulGenerations: result.successfulGenerations,
+      failedGenerations: result.failedGenerations,
+      successRate,
+      averageGenerationTime: Math.round(result.avgGenerationTime || 0),
+      emailsSent: result.emailsSent,
+    }
+  },
+
+  /**
+   * Get animation timeline data for chart (Story 5.2 AC4)
+   * Returns participations per day for the specified period
+   * @param animationId - Animation ID
+   * @param period - Time period: '7d' | '30d' | 'all'
+   * @returns Timeline data with date and count per day
+   */
+  async getAnimationTimeline(
+    animationId: string,
+    period: '7d' | '30d' | 'all' = '30d'
+  ): Promise<{
+    period: '7d' | '30d' | 'all'
+    data: Array<{ date: string; count: number }>
+  }> {
+    await connectDatabase()
+
+    // Validate animation ID format
+    if (!mongoose.Types.ObjectId.isValid(animationId)) {
+      return { period, data: [] }
+    }
+
+    const objectId = new mongoose.Types.ObjectId(animationId)
+
+    // Calculate date filter based on period
+    const matchStage: Record<string, unknown> = { animationId: objectId }
+    if (period !== 'all') {
+      const daysAgo = period === '7d' ? 7 : 30
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - daysAgo)
+      startDate.setHours(0, 0, 0, 0)
+      matchStage.createdAt = { $gte: startDate }
+    }
+
+    // Aggregate by date
+    const timeline = await Generation.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ])
+
+    // Transform to output format
+    const data = timeline.map((item) => ({
+      date: item._id,
+      count: item.count,
+    }))
+
+    logger.info({
+      msg: 'Animation timeline retrieved',
+      animationId,
+      period,
+      dataPoints: data.length,
+    })
+
+    return { period, data }
+  },
 }

@@ -11,13 +11,15 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Check, Copy, Download, ExternalLink, LayoutDashboard, AlertTriangle } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, LayoutDashboard, AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { useAuthStore } from '@/lib/stores/auth.store'
 
 interface PublishSuccessModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  animationId: string
   animationName: string
   publicUrl: string
   qrCodeUrl?: string
@@ -32,13 +34,16 @@ interface PublishSuccessModalProps {
 export function PublishSuccessModal({
   open,
   onOpenChange,
+  animationId,
   animationName,
   publicUrl,
   qrCodeUrl,
   onGoToDashboard,
   onViewAnimation,
 }: PublishSuccessModalProps) {
+  const { getAccessToken } = useAuthStore()
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const handleCopyUrl = async () => {
     try {
@@ -52,10 +57,24 @@ export function PublishSuccessModal({
   }
 
   const handleDownloadQRCode = async () => {
-    if (!qrCodeUrl) return
+    if (!qrCodeUrl || !animationId) return
 
+    setDownloading(true)
     try {
-      const response = await fetch(qrCodeUrl)
+      const token = getAccessToken()
+
+      // Use API endpoint to download (avoids CORS issues with Azure Blob)
+      const response = await fetch(`/api/animations/${animationId}/qrcode`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'Erreur lors du téléchargement')
+      }
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -68,6 +87,8 @@ export function PublishSuccessModal({
       toast.success('QR code téléchargé')
     } catch {
       toast.error('Erreur lors du téléchargement')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -108,8 +129,13 @@ export function PublishSuccessModal({
                 size="sm"
                 className="mt-3"
                 onClick={handleDownloadQRCode}
+                disabled={downloading}
               >
-                <Download className="h-4 w-4 mr-2" />
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
                 Télécharger le QR code
               </Button>
             </div>
