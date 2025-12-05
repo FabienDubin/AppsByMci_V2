@@ -4,10 +4,6 @@
 import { NextRequest } from 'next/server'
 
 // Mock mongoose
-const mockObjectId = {
-  isValid: jest.fn(),
-}
-
 jest.mock('mongoose', () => ({
   __esModule: true,
   default: {
@@ -59,11 +55,6 @@ jest.mock('@/lib/blob-storage', () => ({
 }))
 
 // Mock rate limiting
-const mockRateLimit = {
-  checkGenerationRateLimit: jest.fn(),
-  recordGenerationSubmission: jest.fn(),
-}
-
 jest.mock('@/lib/rate-limit', () => ({
   checkGenerationRateLimit: jest.fn().mockReturnValue({ allowed: true, remaining: 5 }),
   recordGenerationSubmission: jest.fn(),

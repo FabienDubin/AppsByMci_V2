@@ -23,3 +23,25 @@ export interface AnimationResponse {
 
 // Animation filter types
 export type AnimationFilter = 'active' | 'archived' | 'all'
+
+// Animation list options (search, pagination)
+export interface AnimationListOptions {
+  filter?: AnimationFilter
+  search?: string
+  page?: number
+  limit?: number
+}
+
+// Pagination info
+export interface PaginationInfo {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+// Animation list result with pagination
+export interface AnimationListResult {
+  data: import('@/models/Animation.model').IAnimation[]
+  pagination: PaginationInfo
+}

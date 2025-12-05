@@ -358,13 +358,14 @@ describe('GET /api/animations', () => {
     role: 'admin',
   }
 
-  function createMockGetRequest(token?: string): NextRequest {
+  function createMockGetRequest(token?: string, queryString?: string): NextRequest {
     const headers: HeadersInit = {}
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    return new NextRequest('http://localhost:3000/api/animations', {
+    const url = `http://localhost:3000/api/animations${queryString || ''}`
+    return new NextRequest(url, {
       method: 'GET',
       headers,
     })
@@ -414,7 +415,10 @@ describe('GET /api/animations', () => {
         },
       ]
 
-      mockAnimationService.listAnimations.mockResolvedValue(mockAnimations as any)
+      mockAnimationService.listAnimations.mockResolvedValue({
+        data: mockAnimations,
+        pagination: { page: 1, limit: 10, total: 2, totalPages: 1 },
+      } as any)
       mockAnimationService.toAnimationResponse.mockImplementation((anim) => ({
         id: (anim as any)._id,
         name: anim.name,
@@ -435,11 +439,18 @@ describe('GET /api/animations', () => {
       expect(data.data).toHaveLength(2)
       expect(data.data[0].name).toBe('Test Animation 1')
       expect(data.data[1].name).toBe('Test Animation 2')
-      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(mockUser.userId, 'active')
+      expect(data.pagination).toEqual({ page: 1, limit: 10, total: 2, totalPages: 1 })
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(
+        mockUser.userId,
+        { filter: 'active', search: undefined, page: 1, limit: 10 }
+      )
     })
 
     it('should return empty array when user has no animations', async () => {
-      mockAnimationService.listAnimations.mockResolvedValue([])
+      mockAnimationService.listAnimations.mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      })
 
       const request = createMockGetRequest(validToken)
 
@@ -449,6 +460,7 @@ describe('GET /api/animations', () => {
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.data).toHaveLength(0)
+      expect(data.pagination).toEqual({ page: 1, limit: 10, total: 0, totalPages: 0 })
     })
   })
 
@@ -468,6 +480,62 @@ describe('GET /api/animations', () => {
       expect(response.status).toBe(500)
       expect(data.success).toBe(false)
       expect(data.error.code).toBe('INTERNAL_3000')
+    })
+  })
+
+  describe('search and pagination', () => {
+    beforeEach(() => {
+      mockAuth.verifyAccessToken.mockReturnValue(mockUser)
+    })
+
+    it('should pass search parameter to service', async () => {
+      mockAnimationService.listAnimations.mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      })
+
+      const request = createMockGetRequest(validToken, '?search=festival')
+
+      await GET(request)
+
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(
+        mockUser.userId,
+        { filter: 'active', search: 'festival', page: 1, limit: 10 }
+      )
+    })
+
+    it('should pass pagination parameters to service', async () => {
+      mockAnimationService.listAnimations.mockResolvedValue({
+        data: [],
+        pagination: { page: 2, limit: 10, total: 15, totalPages: 2 },
+      })
+
+      const request = createMockGetRequest(validToken, '?page=2&limit=5')
+
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(
+        mockUser.userId,
+        { filter: 'active', search: undefined, page: 2, limit: 5 }
+      )
+      expect(data.pagination.page).toBe(2)
+    })
+
+    it('should limit page to max 100', async () => {
+      mockAnimationService.listAnimations.mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 100, total: 0, totalPages: 0 },
+      })
+
+      const request = createMockGetRequest(validToken, '?limit=200')
+
+      await GET(request)
+
+      expect(mockAnimationService.listAnimations).toHaveBeenCalledWith(
+        mockUser.userId,
+        expect.objectContaining({ limit: 100 })
+      )
     })
   })
 })

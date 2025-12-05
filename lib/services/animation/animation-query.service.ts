@@ -4,7 +4,7 @@
 import Animation, { IAnimation } from '@/models/Animation.model'
 import { logger } from '@/lib/logger'
 import mongoose from 'mongoose'
-import { ANIMATION_ERRORS, AnimationResponse, AnimationFilter } from './animation.types'
+import { ANIMATION_ERRORS, AnimationResponse, AnimationFilter, AnimationListOptions, AnimationListResult } from './animation.types'
 import { animationValidationService } from './animation-validation.service'
 
 /**
@@ -37,57 +37,112 @@ class AnimationQueryService {
   }
 
   /**
-   * List all animations for a user
-   * @param userId - The user ID to list animations for
-   * @param filter - Optional filter: 'active' (draft+published), 'archived', or 'all'
-   * @returns Array of animations
+   * Build status filter based on filter parameter
    */
-  async listAnimations(userId: string, filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
-    let statusFilter: any = {}
-
+  private buildStatusFilter(filter: AnimationFilter): Record<string, any> {
     if (filter === 'active') {
-      statusFilter = { status: { $in: ['draft', 'published'] } }
+      return { status: { $in: ['draft', 'published'] } }
     } else if (filter === 'archived') {
-      statusFilter = { status: 'archived' }
+      return { status: 'archived' }
     }
-    // 'all' = no status filter
-
-    const animations = await Animation.find({
-      userId: new mongoose.Types.ObjectId(userId),
-      ...statusFilter,
-    }).sort({ createdAt: -1 })
-
-    logger.info(
-      { userId, filter, count: animations.length },
-      'Listed animations for user'
-    )
-
-    return animations
+    return {} // 'all' = no status filter
   }
 
   /**
-   * List all animations (admin only)
-   * @param filter - Optional filter: 'active' (draft+published), 'archived', or 'all'
-   * @returns Array of all animations from all users
+   * Build search filter for name
    */
-  async listAllAnimations(filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
-    let statusFilter: any = {}
-
-    if (filter === 'active') {
-      statusFilter = { status: { $in: ['draft', 'published'] } }
-    } else if (filter === 'archived') {
-      statusFilter = { status: 'archived' }
+  private buildSearchFilter(search?: string): Record<string, any> {
+    if (!search || search.trim() === '') {
+      return {}
     }
-    // 'all' = no status filter
+    // Case-insensitive search on name field
+    return { name: { $regex: search.trim(), $options: 'i' } }
+  }
 
-    const animations = await Animation.find(statusFilter).sort({ createdAt: -1 })
+  /**
+   * List all animations for a user with search and pagination
+   * @param userId - The user ID to list animations for
+   * @param options - List options (filter, search, page, limit)
+   * @returns Paginated list of animations
+   */
+  async listAnimations(userId: string, options: AnimationListOptions = {}): Promise<AnimationListResult> {
+    const { filter = 'active', search, page = 1, limit = 10 } = options
+
+    const statusFilter = this.buildStatusFilter(filter)
+    const searchFilter = this.buildSearchFilter(search)
+
+    const query = {
+      userId: new mongoose.Types.ObjectId(userId),
+      ...statusFilter,
+      ...searchFilter,
+    }
+
+    // Count total for pagination
+    const total = await Animation.countDocuments(query)
+    const totalPages = Math.ceil(total / limit)
+    const skip = (page - 1) * limit
+
+    const animations = await Animation.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
 
     logger.info(
-      { filter, count: animations.length },
+      { userId, filter, search, page, limit, total, count: animations.length },
+      'Listed animations for user'
+    )
+
+    return {
+      data: animations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    }
+  }
+
+  /**
+   * List all animations (admin only) with search and pagination
+   * @param options - List options (filter, search, page, limit)
+   * @returns Paginated list of all animations from all users
+   */
+  async listAllAnimations(options: AnimationListOptions = {}): Promise<AnimationListResult> {
+    const { filter = 'active', search, page = 1, limit = 10 } = options
+
+    const statusFilter = this.buildStatusFilter(filter)
+    const searchFilter = this.buildSearchFilter(search)
+
+    const query = {
+      ...statusFilter,
+      ...searchFilter,
+    }
+
+    // Count total for pagination
+    const total = await Animation.countDocuments(query)
+    const totalPages = Math.ceil(total / limit)
+    const skip = (page - 1) * limit
+
+    const animations = await Animation.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+
+    logger.info(
+      { filter, search, page, limit, total, count: animations.length },
       'Listed all animations (admin)'
     )
 
-    return animations
+    return {
+      data: animations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    }
   }
 
   /**

@@ -12,12 +12,10 @@ export function Step4Pipeline() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          Étape 4 : Pipeline de Traitement
-        </h2>
+        <h2 className="text-2xl font-bold tracking-tight">Étape 4 : Pipeline de Traitement</h2>
         <p className="text-muted-foreground mt-2">
-          Composez un pipeline flexible en glissant des blocs de traitement.
-          L&apos;ordre des blocs définit le flow de génération.
+          Composez un pipeline flexible en ajoutant des blocs de traitement. L&apos;ordre des blocs
+          définit le processus de génération.
         </p>
       </div>
 

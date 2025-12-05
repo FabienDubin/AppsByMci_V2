@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAnimationSchema } from '@/lib/schemas/animation.schema'
 import { animationService } from '@/lib/services/animation.service'
+import { generationService } from '@/lib/services/generation.service'
 import { connectDatabase } from '@/lib/database'
 import { logger } from '@/lib/logger'
 import { getAuthenticatedUser } from '@/lib/api-helpers'
@@ -20,11 +21,14 @@ function errorResponse(code: string, message: string, status: number = 400) {
 
 /**
  * GET /api/animations
- * List animations for authenticated user
+ * List animations for authenticated user with search and pagination
  * Requires authentication
  * Query params:
  *   - filter: 'active' (default), 'archived', or 'all'
  *   - scope: 'mine' (default) or 'all' (admin only - lists all users' animations)
+ *   - search: search string for filtering by name (case-insensitive)
+ *   - page: page number (default: 1)
+ *   - limit: items per page (default: 10, max: 100)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -35,42 +39,83 @@ export async function GET(request: NextRequest) {
       return errorResponse('AUTH_1001', 'Authentication requise', 401)
     }
 
-    // Get filter from query params (Story 3.11)
+    // Get query params
     const searchParams = request.nextUrl.searchParams
+
+    // Filter param (Story 3.11)
     const filterParam = searchParams.get('filter')
     const filter: 'active' | 'archived' | 'all' =
       filterParam === 'archived' ? 'archived' :
       filterParam === 'all' ? 'all' :
       'active' // default
 
-    // Get scope param (admin only can use scope=all)
+    // Scope param (admin only can use scope=all)
     const scopeParam = searchParams.get('scope')
     const isAdminAllScope = scopeParam === 'all' && user.role === 'admin'
+
+    // Search param (Story 5.1)
+    const search = searchParams.get('search') || undefined
+
+    // Pagination params (Story 5.1)
+    const pageParam = searchParams.get('page')
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1
+
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10))) : 10
 
     // Connect to database
     await connectDatabase()
 
-    // List animations based on scope
-    let animations
+    // List animations based on scope with search and pagination
+    const options = { filter, search, page, limit }
+    let result
+
     if (isAdminAllScope) {
       // Admin requesting all animations from all users
-      animations = await animationService.listAllAnimations(filter)
+      result = await animationService.listAllAnimations(options)
     } else {
       // Regular user or admin requesting their own animations
-      animations = await animationService.listAnimations(user.userId, filter)
+      result = await animationService.listAnimations(user.userId, options)
     }
 
     // Transform to response format
-    const response = animations.map((animation) =>
+    const animationResponses = result.data.map((animation) =>
       animationService.toAnimationResponse(animation)
     )
 
+    // Get animation stats (participation count and last activity) - Story 5.1 AC4
+    const animationIds = animationResponses.map((a) => a.id)
+    const stats = await generationService.getAnimationStats(animationIds)
+
+    // Enrich response with stats
+    const response = animationResponses.map((animation) => {
+      const animationStats = stats.get(animation.id)
+      return {
+        ...animation,
+        participationCount: animationStats?.participationCount ?? 0,
+        lastActivity: animationStats?.lastActivity ?? null,
+      }
+    })
+
     logger.info(
-      { userId: user.userId, filter, scope: isAdminAllScope ? 'all' : 'mine', count: response.length },
+      {
+        userId: user.userId,
+        filter,
+        scope: isAdminAllScope ? 'all' : 'mine',
+        search,
+        page,
+        limit,
+        total: result.pagination.total,
+        count: response.length,
+      },
       'Animations listed successfully'
     )
 
-    return successResponse(response)
+    return NextResponse.json({
+      success: true,
+      data: response,
+      pagination: result.pagination,
+    })
   } catch (error: any) {
     // Log unexpected errors
     logger.error({ error: error.message, stack: error.stack }, 'Error listing animations')

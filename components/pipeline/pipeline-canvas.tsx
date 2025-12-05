@@ -2,7 +2,13 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useWizardStore, PipelineBlock, BlockName, PipelineBlockType, getAvailableVariables } from '@/lib/stores/wizard.store'
+import {
+  useWizardStore,
+  PipelineBlock,
+  BlockName,
+  PipelineBlockType,
+  getAvailableVariables,
+} from '@/lib/stores/wizard.store'
 import { BlockLibrary } from './block-library'
 import { PipelineBlockCard } from './pipeline-block-card'
 import { ConfigModalCrop } from './config-modal-crop'
@@ -142,9 +148,7 @@ export function PipelineCanvas() {
   const availableVariables = getAvailableVariables(animationData)
 
   // Get block for config modal
-  const configBlock = configModalBlockId
-    ? pipeline.find((b) => b.id === configModalBlockId)
-    : null
+  const configBlock = configModalBlockId ? pipeline.find((b) => b.id === configModalBlockId) : null
 
   // Get block for delete dialog
   const deleteBlock = deleteDialogBlockId
@@ -161,16 +165,18 @@ export function PipelineCanvas() {
         <div className="border rounded-lg p-6 bg-muted/20">
           <h3 className="text-lg font-semibold mb-2">Pipeline de Traitement</h3>
           <p className="text-sm text-muted-foreground mb-6">
-            Ajoutez des blocs pour construire votre pipeline. L&apos;ordre des blocs définit le flow de
-            traitement.
+            Ajoutez des blocs pour construire votre pipeline. L&apos;ordre des blocs définit le flow
+            de traitement.
           </p>
 
           {pipeline.length === 0 ? (
             <div className="border-2 border-dashed rounded-lg p-12 text-center text-muted-foreground">
-              <p className="text-lg mb-2">Utilisez les boutons &quot;+ Ajouter&quot; pour construire votre pipeline</p>
+              <p className="text-lg mb-2">
+                Utilisez les boutons &quot;+ Ajouter&quot; pour construire votre pipeline
+              </p>
               <p className="text-sm">
-                Astuce : Le premier bloc reçoit les données participant. L&apos;ordre des blocs définit le flow
-                de traitement.
+                Astuce : Le premier bloc reçoit les données participant. L&apos;ordre des blocs
+                définit le processus de traitement.
               </p>
             </div>
           ) : (

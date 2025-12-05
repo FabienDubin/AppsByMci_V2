@@ -11,6 +11,7 @@ jest.mock('@/lib/database', () => ({
 const mockCreate = jest.fn()
 const mockFindById = jest.fn()
 const mockFindByIdAndUpdate = jest.fn()
+const mockAggregate = jest.fn()
 
 jest.mock('@/models/Generation.model', () => ({
   __esModule: true,
@@ -18,6 +19,7 @@ jest.mock('@/models/Generation.model', () => ({
     create: mockCreate,
     findById: mockFindById,
     findByIdAndUpdate: mockFindByIdAndUpdate,
+    aggregate: mockAggregate,
   },
 }))
 
@@ -224,6 +226,97 @@ describe('GenerationService', () => {
       )
 
       expect(result).toBeNull()
+    })
+  })
+
+  describe('getAnimationStats', () => {
+    const animationId1 = '507f1f77bcf86cd799439011'
+    const animationId2 = '507f1f77bcf86cd799439012'
+
+    it('should return stats for animations with generations', async () => {
+      const lastActivityDate = new Date('2025-12-05T10:00:00Z')
+      mockAggregate.mockResolvedValue([
+        {
+          _id: new mongoose.Types.ObjectId(animationId1),
+          participationCount: 42,
+          lastActivity: lastActivityDate,
+        },
+      ])
+
+      const result = await generationService.getAnimationStats([animationId1])
+
+      expect(mockAggregate).toHaveBeenCalled()
+      expect(result.get(animationId1)).toEqual({
+        participationCount: 42,
+        lastActivity: lastActivityDate,
+      })
+    })
+
+    it('should return zero stats for animations without generations', async () => {
+      mockAggregate.mockResolvedValue([])
+
+      const result = await generationService.getAnimationStats([animationId1])
+
+      expect(result.get(animationId1)).toEqual({
+        participationCount: 0,
+        lastActivity: null,
+      })
+    })
+
+    it('should handle multiple animation IDs', async () => {
+      const lastActivityDate1 = new Date('2025-12-05T10:00:00Z')
+      const lastActivityDate2 = new Date('2025-12-04T15:00:00Z')
+
+      mockAggregate.mockResolvedValue([
+        {
+          _id: new mongoose.Types.ObjectId(animationId1),
+          participationCount: 10,
+          lastActivity: lastActivityDate1,
+        },
+        {
+          _id: new mongoose.Types.ObjectId(animationId2),
+          participationCount: 5,
+          lastActivity: lastActivityDate2,
+        },
+      ])
+
+      const result = await generationService.getAnimationStats([animationId1, animationId2])
+
+      expect(result.get(animationId1)).toEqual({
+        participationCount: 10,
+        lastActivity: lastActivityDate1,
+      })
+      expect(result.get(animationId2)).toEqual({
+        participationCount: 5,
+        lastActivity: lastActivityDate2,
+      })
+    })
+
+    it('should return empty map for empty animation IDs array', async () => {
+      const result = await generationService.getAnimationStats([])
+
+      expect(mockAggregate).not.toHaveBeenCalled()
+      expect(result.size).toBe(0)
+    })
+
+    it('should filter out invalid animation IDs', async () => {
+      mockAggregate.mockResolvedValue([])
+
+      const result = await generationService.getAnimationStats(['invalid-id', animationId1])
+
+      // Should still call aggregate with the valid ID
+      expect(mockAggregate).toHaveBeenCalled()
+      expect(result.get(animationId1)).toEqual({
+        participationCount: 0,
+        lastActivity: null,
+      })
+    })
+
+    it('should return empty map when all IDs are invalid', async () => {
+      const result = await generationService.getAnimationStats(['invalid-1', 'invalid-2'])
+
+      expect(mockAggregate).not.toHaveBeenCalled()
+      expect(result.size).toBe(0)
     })
   })
 })

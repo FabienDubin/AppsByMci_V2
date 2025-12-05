@@ -251,4 +251,65 @@ export const generationService = {
 
     return generation
   },
+
+  /**
+   * Get animation statistics (participation count and last activity)
+   * Used by dashboard to display stats for each animation (Story 5.1 AC4)
+   * @param animationIds - Array of animation IDs
+   * @returns Map of animationId -> { participationCount, lastActivity }
+   */
+  async getAnimationStats(
+    animationIds: string[]
+  ): Promise<Map<string, { participationCount: number; lastActivity: Date | null }>> {
+    await connectDatabase()
+
+    // Convert string IDs to ObjectIds, filtering out invalid ones
+    const validObjectIds = animationIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id))
+
+    if (validObjectIds.length === 0) {
+      return new Map()
+    }
+
+    // Aggregate to get count and last activity per animation
+    const stats = await Generation.aggregate([
+      {
+        $match: {
+          animationId: { $in: validObjectIds },
+        },
+      },
+      {
+        $group: {
+          _id: '$animationId',
+          participationCount: { $sum: 1 },
+          lastActivity: { $max: '$createdAt' },
+        },
+      },
+    ])
+
+    // Convert array to Map
+    const statsMap = new Map<string, { participationCount: number; lastActivity: Date | null }>()
+
+    // Initialize all requested IDs with zero stats
+    for (const id of animationIds) {
+      statsMap.set(id, { participationCount: 0, lastActivity: null })
+    }
+
+    // Update with actual stats from aggregation
+    for (const stat of stats) {
+      statsMap.set(stat._id.toString(), {
+        participationCount: stat.participationCount,
+        lastActivity: stat.lastActivity,
+      })
+    }
+
+    logger.info({
+      msg: 'Animation stats retrieved',
+      animationCount: animationIds.length,
+      statsCount: stats.length,
+    })
+
+    return statsMap
+  },
 }

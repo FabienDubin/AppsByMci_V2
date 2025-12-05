@@ -9,7 +9,7 @@ import {
   animationMutationService,
   animationValidationService,
 } from '@/lib/services/animation'
-import type { AnimationResponse, AnimationFilter } from '@/lib/services/animation'
+import type { AnimationResponse, AnimationListOptions, AnimationListResult } from '@/lib/services/animation'
 
 // Re-export types for backward compatibility
 export type { AnimationResponse } from '@/lib/services/animation'
@@ -35,12 +35,12 @@ export class AnimationService {
     return animationQueryService.getAnimationById(animationId, userId)
   }
 
-  async listAnimations(userId: string, filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
-    return animationQueryService.listAnimations(userId, filter)
+  async listAnimations(userId: string, options: AnimationListOptions = {}): Promise<AnimationListResult> {
+    return animationQueryService.listAnimations(userId, options)
   }
 
-  async listAllAnimations(filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
-    return animationQueryService.listAllAnimations(filter)
+  async listAllAnimations(options: AnimationListOptions = {}): Promise<AnimationListResult> {
+    return animationQueryService.listAllAnimations(options)
   }
 
   async getPublishedAnimationBySlug(slug: string): Promise<IAnimation> {

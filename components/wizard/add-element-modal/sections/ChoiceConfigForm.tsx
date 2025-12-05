@@ -1,6 +1,6 @@
 'use client'
 
-import { UseFormReturn } from 'react-hook-form'
+import { useFieldArray, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -32,22 +32,11 @@ export function ChoiceConfigForm({
   isEditing,
   validationError,
 }: ChoiceConfigFormProps) {
-  const options = form.watch('options')
-
-  const updateOption = (index: number, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = value
-    form.setValue('options', newOptions)
-  }
-
-  const removeOption = (index: number) => {
-    const newOptions = options.filter((_, i) => i !== index)
-    form.setValue('options', newOptions)
-  }
-
-  const addOption = () => {
-    form.setValue('options', [...options, ''])
-  }
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    // @ts-expect-error - useFieldArray expects objects but we use strings, handled via transform
+    name: 'options',
+  })
 
   return (
     <Form {...form}>
@@ -71,27 +60,39 @@ export function ChoiceConfigForm({
 
         <div className="space-y-2">
           <FormLabel>Options de réponse</FormLabel>
-          {options.map((_, index) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                placeholder={`Option ${index + 1}`}
-                value={form.watch(`options.${index}`)}
-                onChange={(e) => updateOption(index, e.target.value)}
+          {fields.map((field, index) => (
+            <div key={field.id} className="flex gap-2">
+              <FormField
+                control={form.control}
+                name={`options.${index}`}
+                render={({ field }) => (
+                  <FormControl>
+                    <Input
+                      placeholder={`Option ${index + 1}`}
+                      {...field}
+                    />
+                  </FormControl>
+                )}
               />
-              {options.length > 2 && (
+              {fields.length > 2 && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => removeOption(index)}
+                  onClick={() => remove(index)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               )}
             </div>
           ))}
-          {options.length < 6 && (
-            <Button type="button" variant="outline" size="sm" onClick={addOption}>
+          {fields.length < 6 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append('')}
+            >
               <Plus className="h-4 w-4 mr-1" /> Ajouter une option
             </Button>
           )}

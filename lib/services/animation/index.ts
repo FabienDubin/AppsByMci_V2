@@ -7,4 +7,10 @@ export { animationValidationService } from './animation-validation.service'
 
 // Types
 export { ANIMATION_ERRORS } from './animation.types'
-export type { AnimationResponse, AnimationFilter } from './animation.types'
+export type {
+  AnimationResponse,
+  AnimationFilter,
+  AnimationListOptions,
+  AnimationListResult,
+  PaginationInfo,
+} from './animation.types'
