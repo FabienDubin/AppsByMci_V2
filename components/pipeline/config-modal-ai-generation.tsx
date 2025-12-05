@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ChevronDown, HelpCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Form,
   FormControl,
@@ -32,6 +42,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { PipelineBlockConfig, useWizardStore, PipelineBlock } from '@/lib/stores/wizard.store'
 import { AIModel, ReferenceImage, AspectRatio } from '@/lib/types'
 import { AI_MODELS } from '@/lib/ai-models'
@@ -83,6 +98,8 @@ export function ConfigModalAIGeneration({
 }: ConfigModalAIGenerationProps) {
   const [aiModels, setAIModels] = useState<AIModel[]>([])
   const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [showUnusedImagesWarning, setShowUnusedImagesWarning] = useState(false)
+  const [pendingSubmitData, setPendingSubmitData] = useState<AIGenerationConfigFormData | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // State for reference images (managed outside form for better UX)
@@ -141,6 +158,15 @@ export function ConfigModalAIGeneration({
     return imageVars.filter((v) => !usedVariables.includes(v))
   }, [referenceImages, usedVariables])
 
+  // Computed: unused question variables (exclude nom, prenom, email - only questions)
+  const unusedQuestionVariables = useMemo(() => {
+    // Base fields to exclude (not relevant for prompt)
+    const baseFieldVars = ['{nom}', '{prenom}', '{email}']
+    // Filter to only question variables (question1, question2, etc.)
+    const questionVars = availableVariables.filter((v) => !baseFieldVars.includes(v))
+    return questionVars.filter((v) => !usedVariables.includes(v))
+  }, [availableVariables, usedVariables])
+
   /**
    * Insert variable at cursor position
    */
@@ -186,6 +212,18 @@ export function ConfigModalAIGeneration({
   }, [isOpen])
 
   const handleSubmit = (data: AIGenerationConfigFormData) => {
+    // Check for unused reference images or question variables before saving
+    if (unusedImageVariables.length > 0 || unusedQuestionVariables.length > 0) {
+      setPendingSubmitData(data)
+      setShowUnusedImagesWarning(true)
+      return
+    }
+
+    // No unused variables, save directly
+    doSave(data)
+  }
+
+  const doSave = (data: AIGenerationConfigFormData) => {
     onSave({
       modelId: data.modelId,
       promptTemplate: data.promptTemplate,
@@ -193,6 +231,19 @@ export function ConfigModalAIGeneration({
       referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
     })
     onClose()
+  }
+
+  const handleConfirmSaveWithUnusedImages = () => {
+    if (pendingSubmitData) {
+      doSave(pendingSubmitData)
+    }
+    setShowUnusedImagesWarning(false)
+    setPendingSubmitData(null)
+  }
+
+  const handleCancelSaveWithUnusedImages = () => {
+    setShowUnusedImagesWarning(false)
+    setPendingSubmitData(null)
   }
 
   // Get supported aspect ratios for selected model
@@ -334,7 +385,34 @@ export function ConfigModalAIGeneration({
 
             {/* Reference Images section - only show if model supports reference mode (AC1) */}
             {selectedModel && modelSupportsImage && (
-              <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                {/* How to use reference images - Collapsible help box */}
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 transition-colors w-full group">
+                    <HelpCircle className="h-4 w-4" />
+                    <span className="font-medium">Comment utiliser les images de référence ?</span>
+                    <ChevronDown className="h-4 w-4 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2 space-y-2">
+                      <ol className="text-xs text-blue-800 space-y-1.5 list-decimal list-inside">
+                        <li>
+                          <strong>Ajoutez une image</strong> ci-dessous (selfie, upload, ou résultat d&apos;un bloc précédent)
+                        </li>
+                        <li>
+                          <strong>Donnez-lui un nom</strong> (ex: &quot;portrait&quot;, &quot;background&quot;)
+                        </li>
+                        <li>
+                          <strong>Cliquez sur la variable</strong> <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mx-1">{'{nom_image}'}</Badge> dans la section &quot;Variables disponibles&quot; pour l&apos;insérer dans votre prompt
+                        </li>
+                      </ol>
+                      <p className="text-xs text-blue-700 mt-2 border-t border-blue-200 pt-2">
+                        ⚠️ Une image non référencée dans le prompt (variable en jaune) ne sera pas utilisée par le modèle.
+                      </p>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
                 <ReferenceImageList
                   images={referenceImages}
                   hasSelfie={hasSelfie}
@@ -353,38 +431,23 @@ export function ConfigModalAIGeneration({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Prompt template</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Create a futuristic portrait of {nom} in {question1} style"
-                      className="min-h-[120px] font-mono text-sm"
-                      maxLength={2000}
-                      {...field}
-                      ref={(e) => {
-                        field.ref(e)
-                        textareaRef.current = e
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Cliquez sur une variable ci-dessous pour l&apos;insérer dans le prompt (max 2000
-                    caractères)
-                  </FormDescription>
-                  <FormMessage />
 
-                  {/* Variables as clickable badges (AC10) */}
-                  <div className="mt-3 space-y-3">
-                    <p className="text-sm font-medium">Variables disponibles :</p>
+                  {/* Variables as clickable badges - BEFORE the textarea (AC10) */}
+                  <div className="space-y-2 py-2">
+                    <p className="text-xs text-muted-foreground">
+                      Cliquez sur une variable pour l&apos;insérer dans le prompt :
+                    </p>
 
                     {/* Base variables from steps */}
                     {availableVariables.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Champs et questions :</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">Champs et questions :</p>
+                        <div className="flex flex-wrap gap-1.5">
                           {availableVariables.map((variable) => (
                             <Badge
                               key={variable}
                               variant="secondary"
-                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
                               onClick={() => handleInsertVariable(variable)}
                             >
                               {variable}
@@ -397,8 +460,8 @@ export function ConfigModalAIGeneration({
                     {/* Image reference variables */}
                     {referenceImages.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Images de référence :</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">Images de référence :</p>
+                        <div className="flex flex-wrap gap-1.5">
                           {referenceImages.map((img) => {
                             const variable = `{${img.name}}`
                             const isUnused = unusedImageVariables.includes(variable)
@@ -406,7 +469,7 @@ export function ConfigModalAIGeneration({
                               <Badge
                                 key={img.id}
                                 variant={isUnused ? 'outline' : 'secondary'}
-                                className={`cursor-pointer transition-colors ${
+                                className={`cursor-pointer transition-colors text-xs ${
                                   isUnused
                                     ? 'border-yellow-500 text-yellow-700 hover:bg-yellow-100'
                                     : 'hover:bg-primary hover:text-primary-foreground'
@@ -425,24 +488,39 @@ export function ConfigModalAIGeneration({
 
                     {/* Empty state */}
                     {availableVariables.length === 0 && referenceImages.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground italic">
                         Aucune variable disponible. Configurez les champs de base (Step 2), les
                         questions (Step 3), ou ajoutez des images de référence ci-dessus.
                       </p>
                     )}
-
-                    {/* Warning for undefined variables (AC11) */}
-                    {undefinedVariables.length > 0 && (
-                      <Alert variant="destructive" className="mt-2">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription className="text-xs">
-                          Variables non définies dans le prompt : {undefinedVariables.join(', ')}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-
                   </div>
+
+                  <FormControl>
+                    <Textarea
+                      placeholder="Create a futuristic portrait of {nom} in {question1} style"
+                      className="min-h-[120px] font-mono text-sm"
+                      maxLength={2000}
+                      {...field}
+                      ref={(e) => {
+                        field.ref(e)
+                        textareaRef.current = e
+                      }}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Max 2000 caractères
+                  </FormDescription>
+                  <FormMessage />
+
+                  {/* Warning for undefined variables (AC11) */}
+                  {undefinedVariables.length > 0 && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Variables non définies dans le prompt : {undefinedVariables.join(', ')}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </FormItem>
               )}
             />
@@ -456,6 +534,72 @@ export function ConfigModalAIGeneration({
           </form>
         </Form>
       </DialogContent>
+
+      {/* Warning dialog for unused variables */}
+      <AlertDialog open={showUnusedImagesWarning} onOpenChange={setShowUnusedImagesWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              Variables non utilisées
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-muted-foreground text-sm">
+                {/* Unused question variables */}
+                {unusedQuestionVariables.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="font-medium text-foreground">
+                      {unusedQuestionVariables.length === 1
+                        ? 'Réponse à une question non utilisée :'
+                        : 'Réponses aux questions non utilisées :'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {unusedQuestionVariables.map((v) => (
+                        <Badge key={v} variant="outline" className="border-orange-500 text-orange-700">
+                          {v}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Unused image variables */}
+                {unusedImageVariables.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="font-medium text-foreground">
+                      {unusedImageVariables.length === 1
+                        ? 'Image de référence non utilisée :'
+                        : 'Images de référence non utilisées :'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {unusedImageVariables.map((v) => (
+                        <Badge key={v} variant="outline" className="border-yellow-500 text-yellow-700">
+                          {v}
+                        </Badge>
+                      ))}
+                    </div>
+                    <span className="block text-xs text-muted-foreground">
+                      Ces images ne seront pas envoyées au modèle IA.
+                    </span>
+                  </div>
+                )}
+
+                <span className="block pt-2 border-t">
+                  Voulez-vous continuer quand même ?
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSaveWithUnusedImages}>
+              Retour
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSaveWithUnusedImages}>
+              Sauvegarder quand même
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

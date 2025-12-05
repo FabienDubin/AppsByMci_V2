@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronUp, ChevronDown, Settings, Trash2 } from 'lucide-react'
+import { ChevronUp, ChevronDown, Settings, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PipelineBlock } from '@/lib/stores/wizard.store'
 import { AI_MODELS } from '@/lib/ai-models'
@@ -10,6 +10,7 @@ import { AI_MODELS } from '@/lib/ai-models'
 interface PipelineBlockCardProps {
   block: PipelineBlock
   index: number // Display order (1, 2, 3...)
+  availableVariables: string[] // Variables from steps 2 & 3
   onConfigure: () => void
   onDelete: () => void
   onMoveUp: () => void
@@ -64,7 +65,8 @@ function getConfigPreview(block: PipelineBlock): string | null {
     const model = AI_MODELS.find((m) => m.id === block.config.modelId)
     const modelName = model?.name || block.config.modelId
     const promptPreview = block.config.promptTemplate
-      ? block.config.promptTemplate.slice(0, 50) + (block.config.promptTemplate.length > 50 ? '...' : '')
+      ? block.config.promptTemplate.slice(0, 50) +
+        (block.config.promptTemplate.length > 50 ? '...' : '')
       : ''
     return `${modelName}${promptPreview ? ' - ' + promptPreview : ''}`
   }
@@ -81,7 +83,10 @@ function getConfigPreview(block: PipelineBlock): string | null {
  */
 function isBlockConfigured(block: PipelineBlock): boolean {
   if (block.blockName === 'crop-resize') {
-    return !!(block.config.format && (block.config.format === 'original' || block.config.dimensions))
+    return !!(
+      block.config.format &&
+      (block.config.format === 'original' || block.config.dimensions)
+    )
   }
 
   if (block.blockName === 'ai-generation') {
@@ -93,12 +98,49 @@ function isBlockConfigured(block: PipelineBlock): boolean {
 }
 
 /**
+ * Get unused reference images (defined but not in prompt)
+ */
+function getUnusedReferenceImages(block: PipelineBlock): string[] {
+  if (block.blockName !== 'ai-generation') return []
+
+  const referenceImages = block.config.referenceImages || []
+  if (referenceImages.length === 0) return []
+
+  const promptTemplate = block.config.promptTemplate || ''
+  const matches = promptTemplate.match(/\{([^}]+)\}/g)
+  const usedVariables: string[] = matches ? [...matches] : []
+
+  return referenceImages
+    .filter((img) => !usedVariables.includes(`{${img.name}}`))
+    .map((img) => img.name)
+}
+
+/**
+ * Get unused question variables (exclude nom, prenom, email - only questions)
+ */
+function getUnusedQuestionVariables(block: PipelineBlock, availableVariables: string[]): string[] {
+  if (block.blockName !== 'ai-generation') return []
+
+  const promptTemplate = block.config.promptTemplate || ''
+  const matches = promptTemplate.match(/\{([^}]+)\}/g)
+  const usedVariables: string[] = matches ? [...matches] : []
+
+  // Base fields to exclude (not relevant for prompt)
+  const baseFieldVars = ['{nom}', '{prenom}', '{email}']
+  // Filter to only question variables (question1, question2, etc.)
+  const questionVars = availableVariables.filter((v) => !baseFieldVars.includes(v))
+
+  return questionVars.filter((v) => !usedVariables.includes(v))
+}
+
+/**
  * Pipeline block card in canvas - simplified without drag-and-drop
  * AC-3.6.2, AC-3.6.3: Displays order, icon, title, badges, config preview, buttons
  */
 export function PipelineBlockCard({
   block,
   index,
+  availableVariables,
   onConfigure,
   onDelete,
   onMoveUp,
@@ -110,9 +152,17 @@ export function PipelineBlockCard({
   const configPreview = getConfigPreview(block)
   const isConfigured = isBlockConfigured(block)
   const imageModeIndicator = getImageModeIndicator(block)
+  const unusedImages = getUnusedReferenceImages(block)
+  const unusedQuestions = getUnusedQuestionVariables(block, availableVariables)
+  const hasWarnings = unusedImages.length > 0 || unusedQuestions.length > 0
 
   return (
-    <div className={cn('border rounded-lg p-4 bg-white transition-all')}>
+    <div
+      className={cn(
+        'border rounded-lg p-4 bg-white transition-all',
+        hasWarnings && 'border-yellow-400 bg-yellow-50/50'
+      )}
+    >
       <div className="flex items-start gap-3">
         {/* Order number */}
         <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
@@ -145,13 +195,44 @@ export function PipelineBlockCard({
             )}
           </div>
 
-          <Badge variant="secondary" className={cn('text-xs mb-2', metadata.categoryColor)}>
+          {/* // To Be uncommented when the post-processing block is implemented.  */}
+          {/* <Badge variant="secondary" className={cn('text-xs mb-2', metadata.categoryColor)}>
             {block.type}
-          </Badge>
+          </Badge> */}
 
           {/* Config preview */}
           {configPreview && (
             <p className="text-xs text-muted-foreground mt-2 truncate">{configPreview}</p>
+          )}
+
+          {/* Warnings for unused variables */}
+          {hasWarnings && (
+            <div className="mt-2 space-y-1">
+              {/* Unused question variables */}
+              {unusedQuestions.length > 0 && (
+                <div className="flex items-center gap-1.5 text-yellow-700 bg-yellow-100 rounded px-2 py-1">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <p className="text-xs">
+                    {unusedQuestions.length === 1
+                      ? `Variable ${unusedQuestions[0]} non utilisée`
+                      : `${unusedQuestions.length} variables non utilisées : ${unusedQuestions.join(
+                          ', '
+                        )}`}
+                  </p>
+                </div>
+              )}
+              {/* Unused reference images */}
+              {unusedImages.length > 0 && (
+                <div className="flex items-center gap-1.5 text-yellow-700 bg-yellow-100 rounded px-2 py-1">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <p className="text-xs">
+                    {unusedImages.length === 1
+                      ? `Image "${unusedImages[0]}" non utilisée`
+                      : `${unusedImages.length} images non utilisées : ${unusedImages.join(', ')}`}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { BlockName, PipelineBlockType } from '@/lib/stores/wizard.store'
 
@@ -64,13 +63,14 @@ function LibraryBlockCard({ block, onAdd, disabled = false }: LibraryBlockCardPr
         <div className="flex items-center gap-3 flex-1">
           <span className="text-2xl">{block.icon}</span>
           <div className="flex-1">
-            <h4 className={cn('font-medium text-sm', disabled && 'text-muted-foreground')}>{block.title}</h4>
-            <Badge variant="secondary" className={cn('mt-1 text-xs', block.categoryColor)}>
+            <h4 className={cn('font-medium text-sm', disabled && 'text-muted-foreground')}>
+              {block.title}
+            </h4>
+            {/* // To be uncommented when the post processing block is implemented */}
+            {/* <Badge variant="secondary" className={cn('mt-1 text-xs', block.categoryColor)}>
               {block.category}
-            </Badge>
-            {disabled && (
-              <p className="text-xs text-muted-foreground mt-1">Bientôt disponible</p>
-            )}
+            </Badge> */}
+            {disabled && <p className="text-xs text-muted-foreground mt-1">Bientôt disponible</p>}
           </div>
         </div>
       </div>
@@ -106,7 +106,9 @@ export function BlockLibrary({ onAddBlock }: BlockLibraryProps) {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-3">Bibliothèque de blocs</h3>
-        <p className="text-sm text-muted-foreground">Cliquez sur &quot;+ Ajouter&quot; pour ajouter un bloc</p>
+        <p className="text-sm text-muted-foreground">
+          Cliquez sur &quot;+ Ajouter&quot; pour ajouter un bloc
+        </p>
       </div>
 
       {/* Pre-processing section */}

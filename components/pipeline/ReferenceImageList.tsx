@@ -7,7 +7,7 @@ import type { ReferenceImage } from '@/lib/types'
 import type { PipelineBlock } from '@/lib/stores/wizard.store'
 import { ReferenceImageItem } from './ReferenceImageItem'
 
-const MAX_REFERENCE_IMAGES = 5
+const MAX_REFERENCE_IMAGES = 10
 
 interface ReferenceImageListProps {
   images: ReferenceImage[]

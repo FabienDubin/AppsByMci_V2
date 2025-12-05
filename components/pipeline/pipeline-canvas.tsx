@@ -186,6 +186,7 @@ export function PipelineCanvas() {
                   <PipelineBlockCard
                     block={block}
                     index={index}
+                    availableVariables={availableVariables}
                     onConfigure={() => handleConfigure(block.id)}
                     onDelete={() => handleDeleteClick(block.id)}
                     onMoveUp={() => handleMoveUp(block.id)}
