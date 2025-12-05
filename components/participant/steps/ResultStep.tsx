@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Download, RefreshCw, Mail, ImageOff } from 'lucide-react'
+import { Download, RefreshCw, ImageOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useParticipantFormStore } from '@/lib/stores/participantForm.store'
