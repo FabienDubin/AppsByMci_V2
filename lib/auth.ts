@@ -22,14 +22,14 @@ export const comparePassword = async (password: string, hash: string): Promise<b
 }
 
 // Generate an access token (JWT) - prepared for story 2.2
-// Token expires in 15 minutes
+// Token expires in 2 hours for better UX during long editing sessions
 export const generateAccessToken = (payload: {
   userId: string
   email: string
   role: string
 }): string => {
   const secret = getJwtSecret()
-  return jwt.sign(payload, secret, { expiresIn: '15m' })
+  return jwt.sign(payload, secret, { expiresIn: '2h' })
 }
 
 // Generate a unique refresh token using UUID v4 - prepared for story 2.2
