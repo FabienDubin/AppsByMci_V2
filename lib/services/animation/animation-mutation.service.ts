@@ -52,6 +52,7 @@ class AnimationMutationService {
    * @param animationId - The animation ID to update
    * @param userId - The user ID making the update
    * @param data - Partial animation data to update (from Zod validated schema)
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns Updated animation
    * @throws Error with code NOT_FOUND_3001 if animation not found
    * @throws Error with code AUTH_1003 if user doesn't own the animation
@@ -60,10 +61,11 @@ class AnimationMutationService {
   async updateAnimation(
     animationId: string,
     userId: string,
-    data: UpdateAnimation
+    data: UpdateAnimation,
+    userRole?: string
   ): Promise<IAnimation> {
-    // Get animation and verify ownership
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+    // Get animation and verify ownership (admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // If slug is being updated, validate uniqueness
     if (data.slug && data.slug !== animation.slug) {
@@ -217,15 +219,17 @@ class AnimationMutationService {
    * Publish an existing draft animation
    * @param animationId - The animation ID to publish
    * @param userId - The user ID publishing the animation
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns Published animation with QR code
    * @throws Error if animation not found, not owned by user, or slug already exists
    */
   async publishAnimation(
     animationId: string,
-    userId: string
+    userId: string,
+    userRole?: string
   ): Promise<IAnimation> {
-    // Get animation and verify ownership
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+    // Get animation and verify ownership (admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // Validate slug uniqueness for publication (excluding current animation)
     await animationValidationService.validateSlugUnique(animation.slug, animationId)
@@ -267,15 +271,17 @@ class AnimationMutationService {
    * @param animationId - The animation ID to save
    * @param userId - The user ID saving the animation
    * @param data - Complete animation data from wizard
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns Updated animation
    */
   async saveDraft(
     animationId: string,
     userId: string,
-    data: Partial<IAnimation>
+    data: Partial<IAnimation>,
+    userRole?: string
   ): Promise<IAnimation> {
-    // Get animation and verify ownership
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+    // Get animation and verify ownership (admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // If slug is being updated, validate uniqueness
     if (data.slug && data.slug !== animation.slug) {
@@ -307,11 +313,12 @@ class AnimationMutationService {
    * Creates a copy with new name, slug, and draft status
    * @param animationId - The animation ID to duplicate
    * @param userId - The user ID making the request
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns The newly created animation copy
    */
-  async duplicateAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    // Get original animation (validates ownership)
-    const original = await animationQueryService.getAnimationById(animationId, userId)
+  async duplicateAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    // Get original animation (validates ownership, admin bypasses)
+    const original = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // Generate new name and slug
     const newName = `${original.name} (copie)`
@@ -357,11 +364,12 @@ class AnimationMutationService {
    * Sets status to 'archived' and records archive timestamp
    * @param animationId - The animation ID to archive
    * @param userId - The user ID making the request
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns The archived animation
    */
-  async archiveAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    // Get animation (validates ownership)
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+  async archiveAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    // Get animation (validates ownership, admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // Update status and archive timestamp
     animation.status = 'archived'
@@ -382,11 +390,12 @@ class AnimationMutationService {
    * Restores to previous status (published if was published, otherwise draft)
    * @param animationId - The animation ID to restore
    * @param userId - The user ID making the request
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns The restored animation
    */
-  async restoreAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    // Get animation (validates ownership)
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+  async restoreAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    // Get animation (validates ownership, admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // Restore status based on whether it was previously published
     if (animation.publishedAt) {
@@ -413,10 +422,11 @@ class AnimationMutationService {
    * Cascade deletes: all generations, QR code from blob storage
    * @param animationId - The animation ID to delete
    * @param userId - The user ID making the request
+   * @param userRole - The user role (admin bypasses ownership check)
    */
-  async deleteAnimation(animationId: string, userId: string): Promise<void> {
-    // Get animation (validates ownership)
-    const animation = await animationQueryService.getAnimationById(animationId, userId)
+  async deleteAnimation(animationId: string, userId: string, userRole?: string): Promise<void> {
+    // Get animation (validates ownership, admin bypasses)
+    const animation = await animationQueryService.getAnimationById(animationId, userId, userRole)
 
     // 1. Delete all generations associated with this animation
     const deleteResult = await Generation.deleteMany({ animationId: animation._id })

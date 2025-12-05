@@ -86,7 +86,7 @@ describe('PUT /api/animations/[id]/archive', () => {
       status: 'archived',
       archivedAt: new Date(),
     })
-    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123' })
+    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123', role: 'editor' })
     ;(animationService.archiveAnimation as jest.Mock).mockResolvedValue(archivedAnimation)
 
     const request = new NextRequest('http://localhost/api/animations/507f1f77bcf86cd799439011/archive', {
@@ -100,7 +100,7 @@ describe('PUT /api/animations/[id]/archive', () => {
     expect(data.success).toBe(true)
     expect(data.data.status).toBe('archived')
     expect(data.data.archivedAt).toBeDefined()
-    expect(animationService.archiveAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123')
+    expect(animationService.archiveAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123', 'editor')
   })
 
   it('should return 400 when animation ID format is invalid', async () => {
@@ -163,7 +163,7 @@ describe('PUT /api/animations/[id]/restore', () => {
       publishedAt: null,
       archivedAt: undefined,
     })
-    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123' })
+    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123', role: 'editor' })
     ;(animationService.restoreAnimation as jest.Mock).mockResolvedValue(restoredAnimation)
 
     const request = new NextRequest('http://localhost/api/animations/507f1f77bcf86cd799439011/restore', {
@@ -177,7 +177,7 @@ describe('PUT /api/animations/[id]/restore', () => {
     expect(data.success).toBe(true)
     expect(data.data.status).toBe('draft')
     expect(data.data.archivedAt).toBeFalsy() // undefined or null
-    expect(animationService.restoreAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123')
+    expect(animationService.restoreAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123', 'editor')
   })
 
   it('should restore animation to published when previously published', async () => {

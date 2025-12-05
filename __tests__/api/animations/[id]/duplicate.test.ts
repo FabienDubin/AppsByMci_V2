@@ -92,7 +92,7 @@ describe('POST /api/animations/[id]/duplicate', () => {
   })
 
   it('should duplicate animation successfully', async () => {
-    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123' })
+    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123', role: 'editor' })
     ;(animationService.duplicateAnimation as jest.Mock).mockResolvedValue(mockDuplicatedAnimation)
 
     const request = new NextRequest('http://localhost/api/animations/507f1f77bcf86cd799439011/duplicate', {
@@ -106,7 +106,7 @@ describe('POST /api/animations/[id]/duplicate', () => {
     expect(data.success).toBe(true)
     expect(data.data.name).toContain('(copie)')
     expect(data.data.status).toBe('draft')
-    expect(animationService.duplicateAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123')
+    expect(animationService.duplicateAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123', 'editor')
   })
 
   it('should return 400 when animation ID format is invalid', async () => {

@@ -54,7 +54,7 @@ describe('DELETE /api/animations/[id]', () => {
   })
 
   it('should delete animation successfully', async () => {
-    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123' })
+    ;(getAuthenticatedUser as jest.Mock).mockReturnValue({ userId: 'user123', role: 'editor' })
     ;(animationService.deleteAnimation as jest.Mock).mockResolvedValue(undefined)
 
     const request = new NextRequest('http://localhost/api/animations/507f1f77bcf86cd799439011', {
@@ -67,7 +67,7 @@ describe('DELETE /api/animations/[id]', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.data.deleted).toBe(true)
-    expect(animationService.deleteAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123')
+    expect(animationService.deleteAnimation).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'user123', 'editor')
   })
 
   it('should return 404 when animation not found', async () => {

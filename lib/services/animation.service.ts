@@ -31,8 +31,8 @@ export class AnimationService {
   }
 
   // Query operations
-  async getAnimationById(animationId: string, userId: string): Promise<IAnimation> {
-    return animationQueryService.getAnimationById(animationId, userId)
+  async getAnimationById(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    return animationQueryService.getAnimationById(animationId, userId, userRole)
   }
 
   async listAnimations(userId: string, options: AnimationListOptions = {}): Promise<AnimationListResult> {
@@ -62,9 +62,10 @@ export class AnimationService {
   async updateAnimation(
     animationId: string,
     userId: string,
-    data: UpdateAnimation
+    data: UpdateAnimation,
+    userRole?: string
   ): Promise<IAnimation> {
-    return animationMutationService.updateAnimation(animationId, userId, data)
+    return animationMutationService.updateAnimation(animationId, userId, data, userRole)
   }
 
   async createAnimation(
@@ -75,32 +76,33 @@ export class AnimationService {
     return animationMutationService.createAnimation(userId, data, status)
   }
 
-  async publishAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    return animationMutationService.publishAnimation(animationId, userId)
+  async publishAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    return animationMutationService.publishAnimation(animationId, userId, userRole)
   }
 
   async saveDraft(
     animationId: string,
     userId: string,
-    data: Partial<IAnimation>
+    data: Partial<IAnimation>,
+    userRole?: string
   ): Promise<IAnimation> {
-    return animationMutationService.saveDraft(animationId, userId, data)
+    return animationMutationService.saveDraft(animationId, userId, data, userRole)
   }
 
-  async duplicateAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    return animationMutationService.duplicateAnimation(animationId, userId)
+  async duplicateAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    return animationMutationService.duplicateAnimation(animationId, userId, userRole)
   }
 
-  async archiveAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    return animationMutationService.archiveAnimation(animationId, userId)
+  async archiveAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    return animationMutationService.archiveAnimation(animationId, userId, userRole)
   }
 
-  async restoreAnimation(animationId: string, userId: string): Promise<IAnimation> {
-    return animationMutationService.restoreAnimation(animationId, userId)
+  async restoreAnimation(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
+    return animationMutationService.restoreAnimation(animationId, userId, userRole)
   }
 
-  async deleteAnimation(animationId: string, userId: string): Promise<void> {
-    return animationMutationService.deleteAnimation(animationId, userId)
+  async deleteAnimation(animationId: string, userId: string, userRole?: string): Promise<void> {
+    return animationMutationService.deleteAnimation(animationId, userId, userRole)
   }
 
   async incrementStats(animationId: string, type: 'success' | 'failure'): Promise<void> {

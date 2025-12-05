@@ -41,8 +41,8 @@ export async function POST(
     // Connect to database
     await connectDatabase()
 
-    // Duplicate animation (service handles ownership check)
-    const duplicate = await animationService.duplicateAnimation(animationId, user.userId)
+    // Duplicate animation (service handles ownership check, admin bypasses)
+    const duplicate = await animationService.duplicateAnimation(animationId, user.userId, user.role)
 
     // Transform to response format
     const response = animationService.toAnimationResponse(duplicate)

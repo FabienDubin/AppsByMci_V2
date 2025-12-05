@@ -64,9 +64,15 @@ class AnimationValidationService {
    * Validate animation ownership
    * @param animation - The animation to check
    * @param userId - The user ID to validate
-   * @throws Error with code ACCESS_DENIED if user doesn't own the animation
+   * @param userRole - The user role (admin bypasses ownership check)
+   * @throws Error with code ACCESS_DENIED if user doesn't own the animation and is not admin
    */
-  validateOwnership(animation: IAnimation, userId: string): void {
+  validateOwnership(animation: IAnimation, userId: string, userRole?: string): void {
+    // Admin can access all animations
+    if (userRole === 'admin') {
+      return
+    }
+
     if (animation.userId.toString() !== userId) {
       logger.warn(
         { animationId: animation._id.toString(), userId, ownerId: animation.userId.toString() },

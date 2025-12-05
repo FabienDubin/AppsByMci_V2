@@ -71,7 +71,9 @@ export function AnimationsTable({
                   {isOwnAnimation ? (
                     <Badge variant="outline" className="text-xs">Moi</Badge>
                   ) : (
-                    <Badge variant="secondary" className="text-xs">Autre</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {(animation as any).ownerName || 'Utilisateur inconnu'}
+                    </span>
                   )}
                 </TableCell>
               )}

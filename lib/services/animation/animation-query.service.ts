@@ -16,11 +16,12 @@ class AnimationQueryService {
    * Get animation by ID
    * @param animationId - The animation ID
    * @param userId - The user ID requesting the animation
+   * @param userRole - The user role (admin bypasses ownership check)
    * @returns Animation document
    * @throws Error with code NOT_FOUND_3001 if animation not found
    * @throws Error with code AUTH_1003 if user doesn't own the animation
    */
-  async getAnimationById(animationId: string, userId: string): Promise<IAnimation> {
+  async getAnimationById(animationId: string, userId: string, userRole?: string): Promise<IAnimation> {
     const animation = await Animation.findById(animationId)
 
     if (!animation) {
@@ -30,8 +31,8 @@ class AnimationQueryService {
       throw error
     }
 
-    // Check ownership
-    animationValidationService.validateOwnership(animation, userId)
+    // Check ownership (admin bypasses this check)
+    animationValidationService.validateOwnership(animation, userId, userRole)
 
     return animation
   }
@@ -125,6 +126,7 @@ class AnimationQueryService {
     const skip = (page - 1) * limit
 
     const animations = await Animation.find(query)
+      .populate('userId', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -180,9 +182,18 @@ class AnimationQueryService {
    */
   toAnimationResponse(animation: IAnimation): AnimationResponse {
     const obj = animation.toJSON()
+
+    // Handle populated userId (object with name/email) vs non-populated (ObjectId)
+    const isPopulated = obj.userId && typeof obj.userId === 'object' && obj.userId._id
+    const userId = isPopulated ? obj.userId._id.toString() : obj.userId.toString()
+    const ownerName = isPopulated ? (obj.userId.name || obj.userId.email) : undefined
+    const ownerEmail = isPopulated ? obj.userId.email : undefined
+
     return {
       id: obj.id || obj._id.toString(),
-      userId: obj.userId.toString(),
+      userId,
+      ownerName,
+      ownerEmail,
       name: obj.name,
       slug: obj.slug,
       description: obj.description,

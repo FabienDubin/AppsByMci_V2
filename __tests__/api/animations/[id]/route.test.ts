@@ -97,7 +97,8 @@ describe('PUT /api/animations/[id]', () => {
       expect(mockAnimationService.updateAnimation).toHaveBeenCalledWith(
         animationId,
         mockUser.userId,
-        step2Data
+        step2Data,
+        mockUser.role
       )
     })
 
@@ -339,7 +340,8 @@ describe('PUT /api/animations/[id]', () => {
       expect(mockAnimationService.updateAnimation).toHaveBeenCalledWith(
         animationId,
         mockUser.userId,
-        updateData
+        updateData,
+        mockUser.role
       )
     })
 
@@ -371,7 +373,8 @@ describe('PUT /api/animations/[id]', () => {
       expect(mockAnimationService.updateAnimation).toHaveBeenCalledWith(
         animationId,
         mockUser.userId,
-        updateData
+        updateData,
+        mockUser.role
       )
     })
   })
@@ -563,7 +566,8 @@ describe('GET /api/animations/[id]', () => {
       })
       expect(mockAnimationService.getAnimationById).toHaveBeenCalledWith(
         animationId,
-        mockUser.userId
+        mockUser.userId,
+        mockUser.role
       )
     })
 

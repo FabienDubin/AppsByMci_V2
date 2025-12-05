@@ -47,8 +47,8 @@ export async function POST(
     // Connect to database
     await connectDatabase()
 
-    // Publish the animation (validates ownership, slug uniqueness, generates QR)
-    const animation = await animationService.publishAnimation(animationId, user.userId)
+    // Publish the animation (validates ownership, slug uniqueness, generates QR, admin bypasses ownership)
+    const animation = await animationService.publishAnimation(animationId, user.userId, user.role)
 
     // Transform to response format
     const response = animationService.toAnimationResponse(animation)

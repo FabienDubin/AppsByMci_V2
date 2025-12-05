@@ -37,8 +37,8 @@ export async function GET(
     // Connect to database
     await connectDatabase()
 
-    // Get animation (service handles ownership check)
-    const animation = await animationService.getAnimationById(animationId, user.userId)
+    // Get animation (service handles ownership check, admin bypasses)
+    const animation = await animationService.getAnimationById(animationId, user.userId, user.role)
 
     // Transform to response format
     const response = animationService.toAnimationResponse(animation)
@@ -102,11 +102,12 @@ export async function PUT(
     // Connect to database
     await connectDatabase()
 
-    // Update animation (service handles ownership check)
+    // Update animation (service handles ownership check, admin bypasses)
     const animation = await animationService.updateAnimation(
       animationId,
       user.userId,
-      validation.data
+      validation.data,
+      user.role
     )
 
     // Transform to response format
@@ -162,8 +163,8 @@ export async function DELETE(
     // Connect to database
     await connectDatabase()
 
-    // Delete animation (service handles ownership check and cascade deletion)
-    await animationService.deleteAnimation(animationId, user.userId)
+    // Delete animation (service handles ownership check and cascade deletion, admin bypasses)
+    await animationService.deleteAnimation(animationId, user.userId, user.role)
 
     logger.info(
       { userId: user.userId, animationId },

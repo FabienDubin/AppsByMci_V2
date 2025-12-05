@@ -41,8 +41,8 @@ export async function PUT(
     // Connect to database
     await connectDatabase()
 
-    // Restore animation (service handles ownership check)
-    const animation = await animationService.restoreAnimation(animationId, user.userId)
+    // Restore animation (service handles ownership check, admin bypasses)
+    const animation = await animationService.restoreAnimation(animationId, user.userId, user.role)
 
     // Transform to response format
     const response = animationService.toAnimationResponse(animation)
