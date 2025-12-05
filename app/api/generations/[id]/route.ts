@@ -59,9 +59,20 @@ export async function GET(
       status: string
       resultUrl?: string
       error?: { code: string; message: string }
+      // Story 4.7 AC7: Email status for UI feedback
+      emailSent?: boolean
+      participantEmail?: string
     } = {
       id: generation._id.toString(),
       status: generation.status,
+    }
+
+    // Story 4.7 AC7: Include email status for completed generations
+    // Only include if email was attempted (emailSent is not undefined)
+    if (generation.status === 'completed' && generation.emailSent === true) {
+      response.emailSent = true
+      // Include participant email for confirmation message
+      response.participantEmail = generation.participantData?.email
     }
 
     // Add result URL with SAS token if completed

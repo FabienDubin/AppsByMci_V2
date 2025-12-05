@@ -23,6 +23,9 @@ interface GenerationData {
     code: string
     message: string
   }
+  // Story 4.7 AC7: Email status for UI feedback
+  emailSent?: boolean
+  participantEmail?: string
 }
 
 /**
@@ -117,7 +120,9 @@ export default function ResultPage({ params }: ResultPageProps) {
           resultUrl={generation.resultUrl}
           animationSlug={slug}
           thankYouMessage={animation.customization?.thankYouMessage}
-          emailEnabled={animation.emailConfig?.enabled}
+          // Story 4.7 AC7: Use actual emailSent status instead of just enabled config
+          emailEnabled={generation.emailSent}
+          userEmail={generation.participantEmail}
           generationId={generationId}
         />
       </div>

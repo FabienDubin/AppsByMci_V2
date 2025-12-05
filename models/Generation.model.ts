@@ -7,6 +7,14 @@ import mongoose, { Schema, Document, Model } from 'mongoose'
 export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 /**
+ * Email error structure (Story 4.7 AC5)
+ */
+export interface IEmailError {
+  code: string
+  message: string
+}
+
+/**
  * Generation document interface
  */
 export interface IGeneration extends Document {
@@ -19,6 +27,10 @@ export interface IGeneration extends Document {
   finalPrompt?: string // Final prompt sent to AI after variable substitution
   error?: string
   statsRecorded?: boolean // Flag to prevent duplicate stats recording (Story 4.6 AC6)
+  // Email tracking fields (Story 4.7 AC4, AC5)
+  emailSent?: boolean // Whether result email was successfully sent
+  emailSentAt?: Date // Timestamp of successful email send
+  emailError?: IEmailError // Error details if email send failed
   createdAt: Date
   updatedAt: Date
 }
@@ -66,6 +78,22 @@ const GenerationSchema = new Schema<IGeneration>(
     statsRecorded: {
       type: Boolean,
       default: false
+    },
+    // Email tracking fields (Story 4.7 AC4, AC5)
+    emailSent: {
+      type: Boolean,
+      default: undefined // undefined = email not yet attempted, false = failed, true = success
+    },
+    emailSentAt: {
+      type: Date,
+      default: undefined
+    },
+    emailError: {
+      type: {
+        code: { type: String, required: true },
+        message: { type: String, required: true }
+      },
+      default: undefined
     }
   },
   {

@@ -3,7 +3,7 @@
 
 import mongoose from 'mongoose'
 import { connectDatabase } from '@/lib/database'
-import Generation, { type IGeneration } from '@/models/Generation.model'
+import Generation, { type IGeneration, type IEmailError } from '@/models/Generation.model'
 import { logger } from '@/lib/logger'
 
 /**
@@ -198,6 +198,54 @@ export const generationService = {
         generationId,
         errorCode,
         errorMessage,
+      })
+    }
+
+    return generation
+  },
+
+  /**
+   * Update email send status for a generation (Story 4.7 AC4, AC5)
+   * @param generationId - Generation document ID
+   * @param success - Whether email was sent successfully
+   * @param error - Optional error details if send failed
+   * @returns Updated generation or null
+   */
+  async updateEmailStatus(
+    generationId: string,
+    success: boolean,
+    error?: IEmailError
+  ): Promise<IGeneration | null> {
+    await connectDatabase()
+
+    if (!mongoose.Types.ObjectId.isValid(generationId)) {
+      return null
+    }
+
+    const updateData: Record<string, unknown> = {
+      emailSent: success,
+    }
+
+    if (success) {
+      updateData.emailSentAt = new Date()
+      // Clear any previous error
+      updateData.emailError = undefined
+    } else if (error) {
+      updateData.emailError = error
+    }
+
+    const generation = await Generation.findByIdAndUpdate(
+      generationId,
+      updateData,
+      { new: true }
+    )
+
+    if (generation) {
+      logger.info({
+        msg: success ? 'Email status updated: sent' : 'Email status updated: failed',
+        generationId,
+        emailSent: success,
+        emailError: error,
       })
     }
 
