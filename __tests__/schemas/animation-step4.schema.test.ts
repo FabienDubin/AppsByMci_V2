@@ -510,7 +510,7 @@ describe('Step 4 Schemas - Pipeline', () => {
           expect(result.success).toBe(false)
         })
 
-        it('should reject more than 5 referenceImages', () => {
+        it('should reject more than 10 referenceImages', () => {
           const block = {
             id: crypto.randomUUID(),
             type: 'ai-generation' as const,
@@ -519,7 +519,7 @@ describe('Step 4 Schemas - Pipeline', () => {
             config: {
               modelId: 'gpt-image-1',
               promptTemplate: 'Test',
-              referenceImages: Array.from({ length: 6 }, (_, i) => ({
+              referenceImages: Array.from({ length: 11 }, (_, i) => ({
                 id: crypto.randomUUID(),
                 name: `image${i}`,
                 source: 'upload' as const,

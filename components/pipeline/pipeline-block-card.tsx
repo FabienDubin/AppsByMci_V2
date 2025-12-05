@@ -28,6 +28,8 @@ function getBlockMetadata(blockName: string) {
       return { icon: '✂️', title: 'Crop & Resize', categoryColor: 'bg-gray-500' }
     case 'ai-generation':
       return { icon: '✨', title: 'IA Generation', categoryColor: 'bg-purple-500' }
+    case 'quiz-scoring':
+      return { icon: '🎯', title: 'Quiz Scoring', categoryColor: 'bg-amber-500' }
     case 'filters':
       return { icon: '🎨', title: 'Filtres', categoryColor: 'bg-gray-500' }
     default:
@@ -71,6 +73,13 @@ function getConfigPreview(block: PipelineBlock): string | null {
     return `${modelName}${promptPreview ? ' - ' + promptPreview : ''}`
   }
 
+  if (block.blockName === 'quiz-scoring' && block.config.quizScoring?.name) {
+    const config = block.config.quizScoring
+    const profileCount = config.profiles?.length || 0
+    const questionCount = config.selectedQuestionIds?.length || 0
+    return `"${config.name}" - ${profileCount} profils, ${questionCount} question${questionCount > 1 ? 's' : ''}`
+  }
+
   if (block.blockName === 'filters') {
     return 'Filtres appliqués'
   }
@@ -91,6 +100,15 @@ function isBlockConfigured(block: PipelineBlock): boolean {
 
   if (block.blockName === 'ai-generation') {
     return !!(block.config.modelId && block.config.promptTemplate)
+  }
+
+  if (block.blockName === 'quiz-scoring') {
+    const config = block.config.quizScoring
+    return !!(
+      config?.name &&
+      config?.selectedQuestionIds?.length > 0 &&
+      config?.profiles?.length >= 2
+    )
   }
 
   // Filters don't need configuration for MVP

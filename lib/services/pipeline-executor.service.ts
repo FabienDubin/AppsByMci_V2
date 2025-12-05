@@ -6,7 +6,8 @@ import { logger } from '@/lib/logger'
 import { blobStorageService, CONTAINERS } from '@/lib/blob-storage'
 import { generationService, type ParticipantData } from '@/lib/services/generation.service'
 import type { IGeneration } from '@/models/Generation.model'
-import type { IAnimation, IPipelineBlock } from '@/models/Animation.model'
+import type { IAnimation, IPipelineBlock, IInputElement } from '@/models/Animation.model'
+import type { IQuizScoringConfig, IScoringProfile } from '@/models/animation/pipeline.types'
 import { openaiImageService } from '@/lib/services/openai-image.service'
 import { googleAIService } from '@/lib/services/google-ai.service'
 import { withRetry, isRetryableError } from '@/lib/utils/retry'
@@ -309,6 +310,170 @@ export async function resolveReferenceImages(
 }
 
 /**
+ * Quiz Scoring result with calculated profile
+ */
+export interface QuizScoringResult {
+  blockName: string
+  winnerProfile: IScoringProfile
+  scores: Record<string, number>
+}
+
+/**
+ * Execute a quiz scoring block to calculate the winning profile
+ * Counts profile key occurrences from selected questions and determines winner
+ * In case of tie: alphabetical order wins
+ *
+ * @param block - The quiz-scoring pipeline block
+ * @param participantData - Participant's answers
+ * @param choiceQuestions - All choice questions from animation
+ * @returns Quiz scoring result with winner and scores
+ */
+export function executeQuizScoringBlock(
+  block: IPipelineBlock,
+  participantData: ParticipantData,
+  _choiceQuestions: IInputElement[] // Available for future validation
+): QuizScoringResult | null {
+  const config = block.config?.quizScoring as IQuizScoringConfig | undefined
+
+  if (!config || !config.name) {
+    logger.warn({ blockId: block.id }, 'Quiz scoring block missing configuration')
+    return null
+  }
+
+  const { name, selectedQuestionIds, questionMappings, profiles } = config
+
+  if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
+    logger.warn({ blockId: block.id, name }, 'Quiz scoring block has no selected questions')
+    return null
+  }
+
+  if (!profiles || profiles.length < 2) {
+    logger.warn({ blockId: block.id, name }, 'Quiz scoring block has less than 2 profiles')
+    return null
+  }
+
+  // Initialize scores for all profiles
+  const scores: Record<string, number> = {}
+  for (const profile of profiles) {
+    scores[profile.key] = 0
+  }
+
+  // Process each selected question
+  for (const questionId of selectedQuestionIds) {
+    // Find the participant's answer for this question
+    const answer = participantData.answers?.find((a) => a.elementId === questionId)
+    if (!answer) {
+      logger.debug({ questionId, name }, 'No answer found for question in quiz scoring')
+      continue
+    }
+
+    // Find the mapping for this question
+    const mapping = questionMappings?.find((m) => m.elementId === questionId)
+    if (!mapping) {
+      logger.warn({ questionId, name }, 'No mapping found for question in quiz scoring')
+      continue
+    }
+
+    // Find the profile key for this answer
+    const optionMapping = mapping.optionMappings?.find(
+      (om) => om.optionText === String(answer.value)
+    )
+    if (!optionMapping) {
+      logger.warn(
+        { questionId, answerValue: answer.value, name },
+        'No option mapping found for answer in quiz scoring'
+      )
+      continue
+    }
+
+    // Increment the score for this profile key
+    const profileKey = optionMapping.profileKey
+    if (scores[profileKey] !== undefined) {
+      scores[profileKey]++
+    } else {
+      logger.warn(
+        { profileKey, name },
+        'Profile key from mapping not found in profiles definition'
+      )
+    }
+  }
+
+  // Determine winner (highest score, alphabetical order for ties)
+  let winnerKey: string | null = null
+  let maxScore = -1
+
+  const sortedKeys = Object.keys(scores).sort() // Alphabetical order
+  for (const key of sortedKeys) {
+    if (scores[key] > maxScore) {
+      maxScore = scores[key]
+      winnerKey = key
+    }
+  }
+
+  if (!winnerKey) {
+    logger.error({ name, scores }, 'Could not determine winner in quiz scoring')
+    return null
+  }
+
+  const winnerProfile = profiles.find((p) => p.key === winnerKey)
+  if (!winnerProfile) {
+    logger.error({ winnerKey, name }, 'Winner profile not found in profiles definition')
+    return null
+  }
+
+  logger.info(
+    {
+      blockId: block.id,
+      name,
+      scores,
+      winnerKey,
+      winnerName: winnerProfile.name,
+    },
+    'Quiz scoring block executed successfully'
+  )
+
+  return {
+    blockName: name,
+    winnerProfile,
+    scores,
+  }
+}
+
+/**
+ * Enrich execution context with quiz scoring results
+ * Adds variables prefixed with block name: {name}_profile_key, {name}_profile_name, etc.
+ *
+ * @param context - Execution context to enrich
+ * @param scoringResult - Quiz scoring result
+ */
+export function enrichContextWithScoringResult(
+  context: ExecutionContext,
+  scoringResult: QuizScoringResult
+): void {
+  const prefix = scoringResult.blockName
+
+  context[`${prefix}_profile_key`] = scoringResult.winnerProfile.key
+  context[`${prefix}_profile_name`] = scoringResult.winnerProfile.name
+  context[`${prefix}_profile_description`] = scoringResult.winnerProfile.description
+  context[`${prefix}_profile_image_style`] = scoringResult.winnerProfile.imageStyle
+  context[`${prefix}_profile_scores`] = JSON.stringify(scoringResult.scores)
+
+  logger.debug(
+    {
+      prefix,
+      variables: [
+        `${prefix}_profile_key`,
+        `${prefix}_profile_name`,
+        `${prefix}_profile_description`,
+        `${prefix}_profile_image_style`,
+        `${prefix}_profile_scores`,
+      ],
+    },
+    'Context enriched with quiz scoring variables'
+  )
+}
+
+/**
  * Execute a single AI generation block (Story 4.9 - Multi-image support)
  * Supports AC1-AC9: reference images, prompt variable substitution, multi-model support
  */
@@ -477,6 +642,28 @@ export async function executePipeline(
     // Build execution context
     const context = buildExecutionContext(generation.participantData as ParticipantData)
 
+    // Get choice questions for quiz scoring
+    const choiceQuestions = (animation.inputCollection?.elements || []).filter(
+      (el) => el.type === 'choice'
+    )
+
+    // Execute quiz-scoring blocks first to enrich context
+    const scoringBlocks = animation.pipeline
+      .filter((block) => block.blockName === 'quiz-scoring')
+      .sort((a, b) => a.order - b.order)
+
+    for (const scoringBlock of scoringBlocks) {
+      const scoringResult = executeQuizScoringBlock(
+        scoringBlock,
+        generation.participantData as ParticipantData,
+        choiceQuestions
+      )
+
+      if (scoringResult) {
+        enrichContextWithScoringResult(context, scoringResult)
+      }
+    }
+
     // Get AI generation blocks sorted by order
     const aiBlocks = animation.pipeline
       .filter(block => block.type === 'ai-generation')
@@ -595,4 +782,6 @@ export const pipelineExecutorService = {
   replaceVariables,
   replaceImageVariables,
   resolveReferenceImages,
+  executeQuizScoringBlock,
+  enrichContextWithScoringResult,
 }

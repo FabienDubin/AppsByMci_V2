@@ -48,8 +48,8 @@ export interface InputCollection {
 }
 
 // Step 4: Pipeline types
-export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing'
-export type BlockName = 'crop-resize' | 'ai-generation' | 'filters'
+export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing' | 'processing'
+export type BlockName = 'crop-resize' | 'ai-generation' | 'filters' | 'quiz-scoring'
 
 export interface PipelineBlockConfig {
   // Crop & Resize
@@ -70,6 +70,25 @@ export interface PipelineBlockConfig {
 
   // Filters (future)
   filters?: string[]
+
+  // Quiz Scoring
+  quizScoring?: {
+    name: string
+    selectedQuestionIds: string[]
+    questionMappings: Array<{
+      elementId: string
+      optionMappings: Array<{
+        optionText: string
+        profileKey: string
+      }>
+    }>
+    profiles: Array<{
+      key: string
+      name: string
+      description: string
+      imageStyle: string
+    }>
+  }
 }
 
 export interface PipelineBlock {
@@ -365,6 +384,19 @@ export const getAvailableVariables = (data: AnimationData): string[] => {
       questionIndex++
     }
   })
+
+  // Quiz scoring variables from pipeline blocks (Step 4)
+  const scoringBlocks = data.pipeline?.filter((b) => b.blockName === 'quiz-scoring') || []
+  for (const block of scoringBlocks) {
+    const scoringConfig = block.config?.quizScoring
+    if (scoringConfig?.name) {
+      const prefix = scoringConfig.name
+      vars.push(`{${prefix}_profile_key}`)
+      vars.push(`{${prefix}_profile_name}`)
+      vars.push(`{${prefix}_profile_description}`)
+      vars.push(`{${prefix}_profile_image_style}`)
+    }
+  }
 
   return vars
 }

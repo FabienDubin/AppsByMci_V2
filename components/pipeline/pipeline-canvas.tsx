@@ -13,6 +13,7 @@ import { BlockLibrary } from './block-library'
 import { PipelineBlockCard } from './pipeline-block-card'
 import { ConfigModalCrop } from './config-modal-crop'
 import { ConfigModalAIGeneration } from './config-modal-ai-generation'
+import { ConfigModalQuizScoring } from './config-modal-quiz-scoring'
 import { DeleteBlockDialog } from './delete-block-dialog'
 
 /**
@@ -24,7 +25,7 @@ export function PipelineCanvas() {
   const pipeline = animationData.pipeline || []
 
   // Modal states
-  const [configModalType, setConfigModalType] = useState<'crop' | 'ai-generation' | null>(null)
+  const [configModalType, setConfigModalType] = useState<'crop' | 'ai-generation' | 'quiz-scoring' | null>(null)
   const [configModalBlockId, setConfigModalBlockId] = useState<string | null>(null)
   const [deleteDialogBlockId, setDeleteDialogBlockId] = useState<string | null>(null)
 
@@ -100,6 +101,8 @@ export function PipelineCanvas() {
       setConfigModalType('crop')
     } else if (block.blockName === 'ai-generation') {
       setConfigModalType('ai-generation')
+    } else if (block.blockName === 'quiz-scoring') {
+      setConfigModalType('quiz-scoring')
     } else {
       // Filters - no config modal for MVP
       toast.info('Configuration des filtres disponible prochainement')
@@ -226,6 +229,18 @@ export function PipelineCanvas() {
           initialConfig={configBlock.config}
           currentBlockId={configModalBlockId || undefined}
           availableVariables={availableVariables}
+          onClose={() => {
+            setConfigModalType(null)
+            setConfigModalBlockId(null)
+          }}
+          onSave={handleSaveConfig}
+        />
+      )}
+
+      {configModalType === 'quiz-scoring' && configBlock && (
+        <ConfigModalQuizScoring
+          isOpen={true}
+          initialConfig={configBlock.config}
           onClose={() => {
             setConfigModalType(null)
             setConfigModalBlockId(null)

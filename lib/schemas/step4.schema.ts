@@ -1,9 +1,63 @@
 /**
  * Step 4: Pipeline de Traitement
- * Drag-and-drop blocks: crop-resize, ai-generation, filters
+ * Drag-and-drop blocks: crop-resize, ai-generation, filters, quiz-scoring
  */
 
 import { z } from 'zod'
+
+/**
+ * Quiz Scoring profile schema
+ */
+const scoringProfileSchema = z.object({
+  key: z
+    .string()
+    .min(1, 'La clé est requise')
+    .max(5, 'La clé ne peut pas dépasser 5 caractères'),
+  name: z
+    .string()
+    .min(1, 'Le nom est requis')
+    .max(100, 'Le nom ne peut pas dépasser 100 caractères'),
+  description: z
+    .string()
+    .max(2000, 'La description ne peut pas dépasser 2000 caractères')
+    .optional()
+    .default(''),
+  imageStyle: z
+    .string()
+    .max(500, 'Le style visuel ne peut pas dépasser 500 caractères')
+    .optional()
+    .default(''),
+})
+
+/**
+ * Quiz Scoring option mapping schema
+ */
+const optionMappingSchema = z.object({
+  optionText: z.string(),
+  profileKey: z.string().min(1).max(5),
+})
+
+/**
+ * Quiz Scoring question mapping schema
+ */
+const questionMappingSchema = z.object({
+  elementId: z.string(),
+  optionMappings: z.array(optionMappingSchema),
+})
+
+/**
+ * Quiz Scoring configuration schema
+ */
+const quizScoringConfigSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Le nom du bloc est requis')
+    .max(50, 'Le nom ne peut pas dépasser 50 caractères')
+    .regex(/^[a-z0-9_]+$/, 'Le nom doit être en minuscules, sans espaces (underscore autorisé)'),
+  selectedQuestionIds: z.array(z.string()).min(1, 'Au moins 1 question doit être sélectionnée'),
+  questionMappings: z.array(questionMappingSchema),
+  profiles: z.array(scoringProfileSchema).min(2, 'Au moins 2 profils sont requis'),
+})
 
 /**
  * Reference image schema (Story 4.8)
@@ -33,8 +87,8 @@ const aspectRatioSchema = z.enum(['1:1', '9:16', '16:9', '2:3', '3:2'])
 export const pipelineBlockSchema = z
   .object({
     id: z.string().uuid('ID must be a valid UUID'),
-    type: z.enum(['preprocessing', 'ai-generation', 'postprocessing']),
-    blockName: z.enum(['crop-resize', 'ai-generation', 'filters']),
+    type: z.enum(['preprocessing', 'ai-generation', 'postprocessing', 'processing']),
+    blockName: z.enum(['crop-resize', 'ai-generation', 'filters', 'quiz-scoring']),
     order: z.number().int().min(0, 'Order must be >= 0'),
 
     config: z.object({
@@ -64,10 +118,13 @@ export const pipelineBlockSchema = z
       aspectRatio: aspectRatioSchema.optional(),
 
       // Multi-reference images configuration (Story 4.8)
-      referenceImages: z.array(referenceImageSchema).max(5, 'Maximum 5 reference images').optional(),
+      referenceImages: z.array(referenceImageSchema).max(10, 'Maximum 10 reference images').optional(),
 
       // Filters fields (future)
       filters: z.array(z.string()).optional(),
+
+      // Quiz Scoring configuration
+      quizScoring: quizScoringConfigSchema.optional(),
     }),
   })
   .superRefine((data, ctx) => {

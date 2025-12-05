@@ -3,8 +3,8 @@
 /**
  * Pipeline block types (Step 4)
  */
-export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing'
-export type BlockName = 'crop-resize' | 'ai-generation' | 'filters'
+export type PipelineBlockType = 'preprocessing' | 'ai-generation' | 'postprocessing' | 'processing'
+export type BlockName = 'crop-resize' | 'ai-generation' | 'filters' | 'quiz-scoring'
 
 /**
  * Image usage mode for AI generation
@@ -34,6 +34,42 @@ export interface IReferenceImage {
 }
 
 /**
+ * Quiz Scoring - Option to profile mapping
+ */
+export interface IOptionMapping {
+  optionText: string      // The text of the option (for matching with participant answer)
+  profileKey: string      // The profile key (A, B, C, D, E...)
+}
+
+/**
+ * Quiz Scoring - Question mapping configuration
+ */
+export interface IQuestionMapping {
+  elementId: string               // ID of the choice question
+  optionMappings: IOptionMapping[] // Mapping for each option
+}
+
+/**
+ * Quiz Scoring - Profile definition
+ */
+export interface IScoringProfile {
+  key: string           // Profile key (A, B, C, D, E...)
+  name: string          // Profile name (e.g., "HEINEKEN – L'ICONIQUE")
+  description: string   // Profile description
+  imageStyle: string    // Visual style for AI prompt
+}
+
+/**
+ * Quiz Scoring block configuration
+ */
+export interface IQuizScoringConfig {
+  name: string                        // Unique name for this scoring block (used as variable prefix)
+  selectedQuestionIds: string[]       // IDs of questions included in scoring
+  questionMappings: IQuestionMapping[] // Mapping for each selected question
+  profiles: IScoringProfile[]          // Profile definitions (min 2)
+}
+
+/**
  * Pipeline block configuration (Step 4)
  */
 export interface IPipelineBlockConfig {
@@ -55,6 +91,9 @@ export interface IPipelineBlockConfig {
 
   // Filters (future)
   filters?: string[]
+
+  // Quiz Scoring
+  quizScoring?: IQuizScoringConfig
 }
 
 /**

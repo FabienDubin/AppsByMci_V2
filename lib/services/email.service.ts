@@ -210,9 +210,7 @@ export function buildEmailHtml(
     : ''
 
   // Substitute {downloadLink} variable in ctaUrl
-  const ctaUrl = d.ctaUrl
-    ? d.ctaUrl.replace(/\{downloadLink\}/g, data.downloadLink)
-    : '#'
+  const ctaUrl = d.ctaUrl ? d.ctaUrl.replace(/\{downloadLink\}/g, data.downloadLink) : '#'
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -222,25 +220,35 @@ export function buildEmailHtml(
   <title>${data.animationName}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; ${backgroundStyle} position: relative;">
-  ${backgroundOverlayColor ? `<!-- Background overlay for image + color opacity -->
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: ${backgroundOverlayColor}; pointer-events: none;"></div>` : ''}
+  ${
+    backgroundOverlayColor
+      ? `<!-- Background overlay for image + color opacity -->
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: ${backgroundOverlayColor}; pointer-events: none;"></div>`
+      : ''
+  }
   <div style="max-width: 600px; margin: 0 auto; padding: 20px; position: relative;">
     ${logoSection}
     <!-- Content Card -->
-    <div style="background-color: ${contentBgColor}; border-radius: ${d.borderRadius}px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="background-color: ${contentBgColor}; border-radius: ${
+    d.borderRadius
+  }px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
       <!-- Body Content (image is included via {imageUrl} variable in template) -->
       <div style="color: ${d.textColor}; font-size: 16px; line-height: 1.6;">
         ${bodyContent}
       </div>
 
       <!-- CTA Button (only if configured) -->
-      ${d.ctaText ? `
+      ${
+        d.ctaText
+          ? `
       <div style="text-align: center; margin: 24px 0;">
         <a href="${ctaUrl}" style="display: inline-block; background-color: ${d.primaryColor}; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
           ${d.ctaText}
         </a>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
   </div>

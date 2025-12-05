@@ -331,16 +331,16 @@ const AnimationSchema = new Schema<IAnimation>(
           type: {
             type: String,
             enum: {
-              values: ['preprocessing', 'ai-generation', 'postprocessing'],
-              message: 'Pipeline block type must be preprocessing, ai-generation, or postprocessing'
+              values: ['preprocessing', 'ai-generation', 'postprocessing', 'processing'],
+              message: 'Pipeline block type must be preprocessing, ai-generation, postprocessing, or processing'
             },
             required: true
           },
           blockName: {
             type: String,
             enum: {
-              values: ['crop-resize', 'ai-generation', 'filters'],
-              message: 'Block name must be crop-resize, ai-generation, or filters'
+              values: ['crop-resize', 'ai-generation', 'filters', 'quiz-scoring'],
+              message: 'Block name must be crop-resize, ai-generation, filters, or quiz-scoring'
             },
             required: true
           },
@@ -419,6 +419,46 @@ const AnimationSchema = new Schema<IAnimation>(
             filters: {
               type: [String],
               default: undefined
+            },
+            // Quiz Scoring configuration
+            quizScoring: {
+              name: {
+                type: String,
+                maxlength: [50, 'Quiz scoring name cannot exceed 50 characters'],
+                default: undefined
+              },
+              selectedQuestionIds: {
+                type: [String],
+                default: undefined
+              },
+              questionMappings: {
+                type: [
+                  {
+                    elementId: { type: String, required: true },
+                    optionMappings: {
+                      type: [
+                        {
+                          optionText: { type: String, required: true },
+                          profileKey: { type: String, required: true, maxlength: 5 }
+                        }
+                      ],
+                      default: []
+                    }
+                  }
+                ],
+                default: undefined
+              },
+              profiles: {
+                type: [
+                  {
+                    key: { type: String, required: true, maxlength: 5 },
+                    name: { type: String, required: true, maxlength: 100 },
+                    description: { type: String, maxlength: 2000, default: '' },
+                    imageStyle: { type: String, maxlength: 500, default: '' }
+                  }
+                ],
+                default: undefined
+              }
             }
           }
         }
@@ -836,6 +876,120 @@ AnimationSchema.pre('save', function () {
     }
     if (!emailConfig.bodyTemplate || emailConfig.bodyTemplate.trim() === '') {
       throw new Error("Le corps de l'email est requis quand l'envoi est activé")
+    }
+  }
+})
+
+/**
+ * Pre-save validation hook for quiz-scoring blocks in pipeline
+ * Validates business rules:
+ * - At least 1 question must be selected
+ * - All options of selected questions must be mapped
+ * - At least 2 profiles must be defined
+ * - Scoring block names must be unique within the pipeline
+ * - All mapped profile keys must have a corresponding profile definition
+ */
+AnimationSchema.pre('save', function () {
+  // Only validate if pipeline exists and has been modified
+  if (!this.pipeline || !this.isModified('pipeline')) {
+    return
+  }
+
+  const pipeline = this.pipeline || []
+  const scoringBlocks = pipeline.filter((b) => b.blockName === 'quiz-scoring')
+
+  if (scoringBlocks.length === 0) {
+    return
+  }
+
+  // Get all choice questions from inputCollection for validation
+  const choiceQuestions = (this.inputCollection?.elements || []).filter(
+    (el) => el.type === 'choice'
+  )
+  const choiceQuestionIds = new Set(choiceQuestions.map((q) => q.id))
+
+  // Track scoring block names for uniqueness validation
+  const scoringBlockNames = new Set<string>()
+
+  for (const block of scoringBlocks) {
+    const config = block.config?.quizScoring
+
+    if (!config) {
+      throw new Error(`Configuration quiz-scoring manquante pour le bloc (id: ${block.id})`)
+    }
+
+    // Validate name exists and is unique
+    if (!config.name || config.name.trim() === '') {
+      throw new Error(`Nom requis pour le bloc quiz-scoring (id: ${block.id})`)
+    }
+
+    const normalizedName = config.name.trim().toLowerCase()
+    if (scoringBlockNames.has(normalizedName)) {
+      throw new Error(`Nom de bloc quiz-scoring en doublon: "${config.name}"`)
+    }
+    scoringBlockNames.add(normalizedName)
+
+    // Validate at least 1 question selected
+    if (!config.selectedQuestionIds || config.selectedQuestionIds.length === 0) {
+      throw new Error(
+        `Au moins 1 question doit être sélectionnée pour le bloc quiz-scoring "${config.name}"`
+      )
+    }
+
+    // Validate selected questions exist
+    for (const questionId of config.selectedQuestionIds) {
+      if (!choiceQuestionIds.has(questionId)) {
+        throw new Error(
+          `Question sélectionnée introuvable (id: ${questionId}) dans le bloc quiz-scoring "${config.name}"`
+        )
+      }
+    }
+
+    // Validate at least 2 profiles
+    if (!config.profiles || config.profiles.length < 2) {
+      throw new Error(
+        `Au moins 2 profils requis pour le bloc quiz-scoring "${config.name}"`
+      )
+    }
+
+    // Get all defined profile keys
+    const definedProfileKeys = new Set(config.profiles.map((p) => p.key))
+
+    // Validate mappings for selected questions
+    if (!config.questionMappings || config.questionMappings.length === 0) {
+      throw new Error(
+        `Mapping des questions requis pour le bloc quiz-scoring "${config.name}"`
+      )
+    }
+
+    for (const questionId of config.selectedQuestionIds) {
+      const mapping = config.questionMappings.find((m) => m.elementId === questionId)
+      if (!mapping) {
+        throw new Error(
+          `Mapping manquant pour la question (id: ${questionId}) dans le bloc quiz-scoring "${config.name}"`
+        )
+      }
+
+      // Get the question options
+      const question = choiceQuestions.find((q) => q.id === questionId)
+      if (question && question.options) {
+        // Validate all options are mapped
+        for (const option of question.options) {
+          const optionMapping = mapping.optionMappings?.find((om) => om.optionText === option)
+          if (!optionMapping) {
+            throw new Error(
+              `Option "${option}" non mappée pour la question (id: ${questionId}) dans le bloc quiz-scoring "${config.name}"`
+            )
+          }
+
+          // Validate mapped profile key exists
+          if (!definedProfileKeys.has(optionMapping.profileKey)) {
+            throw new Error(
+              `Profil "${optionMapping.profileKey}" non défini mais utilisé dans le mapping pour le bloc quiz-scoring "${config.name}"`
+            )
+          }
+        }
+      }
     }
   }
 })

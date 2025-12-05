@@ -13,7 +13,7 @@ interface BlockDefinition {
   categoryColor: string
 }
 
-// Hardcoded 3 blocks for MVP
+// Hardcoded blocks for MVP
 const BLOCK_DEFINITIONS: BlockDefinition[] = [
   {
     blockName: 'crop-resize',
@@ -22,6 +22,14 @@ const BLOCK_DEFINITIONS: BlockDefinition[] = [
     title: 'Crop & Resize',
     category: 'Pre-processing',
     categoryColor: 'bg-gray-500',
+  },
+  {
+    blockName: 'quiz-scoring',
+    type: 'processing',
+    icon: '🎯',
+    title: 'Quiz Scoring',
+    category: 'Processing',
+    categoryColor: 'bg-amber-500',
   },
   {
     blockName: 'ai-generation',
@@ -99,6 +107,7 @@ interface BlockLibraryProps {
  */
 export function BlockLibrary({ onAddBlock }: BlockLibraryProps) {
   const preprocessingBlocks = BLOCK_DEFINITIONS.filter((b) => b.type === 'preprocessing')
+  const processingBlocks = BLOCK_DEFINITIONS.filter((b) => b.type === 'processing')
   const aiGenerationBlocks = BLOCK_DEFINITIONS.filter((b) => b.type === 'ai-generation')
   const postprocessingBlocks = BLOCK_DEFINITIONS.filter((b) => b.type === 'postprocessing')
 
@@ -124,6 +133,22 @@ export function BlockLibrary({ onAddBlock }: BlockLibraryProps) {
           ))}
         </div>
       </div>
+
+      {/* Processing section (Quiz Scoring, etc.) */}
+      {processingBlocks.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-amber-600 mb-2">Processing</h4>
+          <div className="space-y-2">
+            {processingBlocks.map((block) => (
+              <LibraryBlockCard
+                key={block.blockName}
+                block={block}
+                onAdd={() => onAddBlock(block.blockName, block.type)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* IA Generation section */}
       <div>
