@@ -12,7 +12,15 @@ import { PublishConfirmationModal } from '@/components/wizard/publish-confirmati
 import { PublishSuccessModal } from '@/components/wizard/publish-success-modal'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Loader2, AlertTriangle, ArrowLeft, ExternalLink, Download, Copy, QrCode } from 'lucide-react'
+import {
+  Loader2,
+  AlertTriangle,
+  ArrowLeft,
+  ExternalLink,
+  Download,
+  Copy,
+  QrCode,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { generateSummary } from '@/lib/utils/animation-summary'
 
@@ -27,11 +35,7 @@ const SECTION_ROUTES: Record<number, string> = {
   7: 'customization',
 }
 
-export default function EditAnimationPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default function EditAnimationPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const animationId = resolvedParams.id
   const router = useRouter()
@@ -58,7 +62,7 @@ export default function EditAnimationPage({
 
   // Build public URL
   const publicUrl = animationData.slug
-    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/${animationData.slug}`
+    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'}/a/${animationData.slug}`
     : null
 
   // Copy URL to clipboard
@@ -245,10 +249,7 @@ export default function EditAnimationPage({
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-4xl">
         {/* Header with breadcrumb */}
-        <EditHeader
-          animationName={animationData.name || 'Sans nom'}
-          animationId={animationId}
-        />
+        <EditHeader animationName={animationData.name || 'Sans nom'} animationId={animationId} />
 
         {/* Published animation info - URL & QR Code */}
         {originalStatus === 'published' && publicUrl && (
@@ -266,7 +267,12 @@ export default function EditAnimationPage({
                   <div className="flex-1 px-3 py-2 bg-muted rounded-md text-sm font-mono truncate">
                     {publicUrl}
                   </div>
-                  <Button variant="outline" size="icon" onClick={handleCopyUrl} title="Copier l'URL">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyUrl}
+                    title="Copier l'URL"
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                   <Button
@@ -305,10 +311,7 @@ export default function EditAnimationPage({
 
         {/* Summary cards */}
         <div className="rounded-lg border bg-card p-6">
-          <Step8Summary
-            onGoToStep={handleGoToSection}
-            mode="edit"
-          />
+          <Step8Summary onGoToStep={handleGoToSection} mode="edit" />
 
           {/* Action buttons */}
           <div className="mt-8 pt-6 border-t">
@@ -339,7 +342,9 @@ export default function EditAnimationPage({
         open={showPublishSuccess}
         onOpenChange={setShowPublishSuccess}
         animationName={animationData.name || ''}
-        publicUrl={`${process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/${animationData.slug || ''}`}
+        publicUrl={`${process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'}/a/${
+          animationData.slug || ''
+        }`}
         qrCodeUrl={publishedQrCode || undefined}
         onGoToDashboard={handleSuccessClose}
         onViewAnimation={() => {

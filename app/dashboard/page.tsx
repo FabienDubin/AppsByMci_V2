@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuthStore } from '@/lib/stores/auth.store'
 import { useWizardStore } from '@/lib/stores/wizard.store'
+import { usePreferencesStore } from '@/lib/stores/preferences.store'
 import { LogoutButton } from '@/components/auth/logout-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,8 +23,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
-import { Plus, MoreHorizontal, Pencil, Eye, Copy, Archive, Trash2, RotateCcw, Loader2 } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Eye, Copy, Archive, Trash2, RotateCcw, Loader2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimationResponse } from '@/lib/services/animation.service'
 import { DuplicateAnimationModal } from '@/components/modals/duplicate-animation-modal'
@@ -32,6 +35,7 @@ import { RestoreAnimationModal } from '@/components/modals/restore-animation-mod
 import { DeleteAnimationModal } from '@/components/modals/delete-animation-modal'
 
 type FilterType = 'active' | 'archived' | 'all'
+type ScopeType = 'mine' | 'all'
 
 interface ModalState {
   duplicate: { isOpen: boolean; animation: AnimationResponse | null }
@@ -43,6 +47,7 @@ interface ModalState {
 export default function DashboardPage() {
   const { user, getAccessToken } = useAuthStore()
   const { resetWizard } = useWizardStore()
+  const { showAllAnimations, setShowAllAnimations } = usePreferencesStore()
   const router = useRouter()
 
   const [animations, setAnimations] = useState<AnimationResponse[]>([])
@@ -50,6 +55,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('active')
   const [actionLoading, setActionLoading] = useState(false)
+
+  // Derive scope from store preference (admin only)
+  const scope: ScopeType = user?.role === 'admin' && showAllAnimations ? 'all' : 'mine'
   const [modals, setModals] = useState<ModalState>({
     duplicate: { isOpen: false, animation: null },
     archive: { isOpen: false, animation: null },
@@ -57,8 +65,8 @@ export default function DashboardPage() {
     delete: { isOpen: false, animation: null },
   })
 
-  // Fetch animations with filter
-  const fetchAnimations = useCallback(async (currentFilter: FilterType) => {
+  // Fetch animations with filter and scope
+  const fetchAnimations = useCallback(async (currentFilter: FilterType, currentScope: ScopeType) => {
     try {
       const token = getAccessToken()
       if (!token) {
@@ -66,7 +74,13 @@ export default function DashboardPage() {
         return
       }
 
-      const response = await fetch(`/api/animations?filter=${currentFilter}`, {
+      // Build URL with filter and scope (scope only for admin)
+      const params = new URLSearchParams({ filter: currentFilter })
+      if (user?.role === 'admin' && currentScope === 'all') {
+        params.set('scope', 'all')
+      }
+
+      const response = await fetch(`/api/animations?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -86,15 +100,15 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [getAccessToken])
+  }, [getAccessToken, user?.role])
 
-  // Fetch animations on mount and filter change
+  // Fetch animations on mount and filter/scope change
   useEffect(() => {
     if (user) {
       setLoading(true)
-      fetchAnimations(filter)
+      fetchAnimations(filter, scope)
     }
-  }, [user, filter, fetchAnimations])
+  }, [user, filter, scope, fetchAnimations])
 
   // AuthProvider ensures we're authenticated
   if (!user) {
@@ -161,7 +175,7 @@ export default function DashboardPage() {
       toast.success('Animation dupliquée avec succès')
       closeModal('duplicate')
       // Refresh list to show the new duplicate
-      fetchAnimations(filter)
+      fetchAnimations(filter, scope)
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la duplication')
     } finally {
@@ -193,7 +207,7 @@ export default function DashboardPage() {
       toast.success('Animation archivée')
       closeModal('archive')
       // Refresh list - animation will disappear from 'active' filter
-      fetchAnimations(filter)
+      fetchAnimations(filter, scope)
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de l\'archivage')
     } finally {
@@ -225,7 +239,7 @@ export default function DashboardPage() {
       toast.success('Animation restaurée')
       closeModal('restore')
       // Refresh list
-      fetchAnimations(filter)
+      fetchAnimations(filter, scope)
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la restauration')
     } finally {
@@ -257,7 +271,7 @@ export default function DashboardPage() {
       toast.success('Animation supprimée définitivement')
       closeModal('delete')
       // Refresh list
-      fetchAnimations(filter)
+      fetchAnimations(filter, scope)
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la suppression')
     } finally {
@@ -299,35 +313,67 @@ export default function DashboardPage() {
         <div className="grid gap-6">
           {/* User info card */}
           <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Bienvenue, {user?.name || user?.email}</h2>
-            <div className="space-y-2 text-muted-foreground">
-              <p>
-                <strong>Email:</strong> {user?.email}
-              </p>
-              <p>
-                <strong>Rôle:</strong> {user?.role}
-              </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Bienvenue, {user?.name || user?.email}</h2>
+                <div className="space-y-2 text-muted-foreground">
+                  <p>
+                    <strong>Email:</strong> {user?.email}
+                  </p>
+                  <p>
+                    <strong>Rôle:</strong> {user?.role}
+                  </p>
+                </div>
+              </div>
+              {user?.role === 'admin' && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/dashboard/users')}
+                  className="gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Gérer les utilisateurs
+                </Button>
+              )}
             </div>
           </div>
 
           {/* Animations section */}
           <div className="rounded-lg border bg-card p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Mes Animations</h2>
+              <h2 className="text-xl font-semibold">
+                {scope === 'all' ? 'Toutes les Animations' : 'Mes Animations'}
+              </h2>
               <Button onClick={handleCreateAnimation} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Nouvelle animation
               </Button>
             </div>
 
-            {/* Filter tabs */}
-            <Tabs value={filter} onValueChange={(value) => setFilter(value as FilterType)} className="mb-6">
-              <TabsList>
-                <TabsTrigger value="active">Actives</TabsTrigger>
-                <TabsTrigger value="archived">Archivées</TabsTrigger>
-                <TabsTrigger value="all">Toutes</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Filter tabs and admin scope switch */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <Tabs value={filter} onValueChange={(value) => setFilter(value as FilterType)}>
+                <TabsList>
+                  <TabsTrigger value="active">Actives</TabsTrigger>
+                  <TabsTrigger value="archived">Archivées</TabsTrigger>
+                  <TabsTrigger value="all">Toutes</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {/* Admin scope switch */}
+              {user?.role === 'admin' && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="scope-switch"
+                    checked={showAllAnimations}
+                    onCheckedChange={setShowAllAnimations}
+                  />
+                  <Label htmlFor="scope-switch" className="text-sm text-muted-foreground cursor-pointer">
+                    Voir toutes les animations
+                  </Label>
+                </div>
+              )}
+            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -357,15 +403,27 @@ export default function DashboardPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nom</TableHead>
+                    {scope === 'all' && <TableHead>Propriétaire</TableHead>}
                     <TableHead>Status</TableHead>
                     <TableHead>Créée le</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {animations.map((animation) => (
+                  {animations.map((animation) => {
+                    const isOwnAnimation = animation.userId === user?.id
+                    return (
                     <TableRow key={animation.id}>
                       <TableCell className="font-medium">{animation.name}</TableCell>
+                      {scope === 'all' && (
+                        <TableCell>
+                          {isOwnAnimation ? (
+                            <Badge variant="outline" className="text-xs">Moi</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Autre</Badge>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>{getStatusBadge(animation.status)}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(animation.createdAt)}
@@ -430,7 +488,8 @@ export default function DashboardPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             )}

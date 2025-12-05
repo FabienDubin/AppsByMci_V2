@@ -32,6 +32,7 @@ interface EmailDesignSectionProps {
   open: boolean
   onToggle: () => void
   getAuthToken: () => Promise<string | null>
+  backgroundImageUrl?: string
 }
 
 export function EmailDesignSection({
@@ -39,8 +40,8 @@ export function EmailDesignSection({
   open,
   onToggle,
   getAuthToken,
+  backgroundImageUrl,
 }: EmailDesignSectionProps) {
-  const backgroundImageUrl = form.watch('design.backgroundImageUrl')
 
   return (
     <Collapsible open={open} onOpenChange={onToggle}>

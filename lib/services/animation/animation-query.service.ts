@@ -66,6 +66,31 @@ class AnimationQueryService {
   }
 
   /**
+   * List all animations (admin only)
+   * @param filter - Optional filter: 'active' (draft+published), 'archived', or 'all'
+   * @returns Array of all animations from all users
+   */
+  async listAllAnimations(filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
+    let statusFilter: any = {}
+
+    if (filter === 'active') {
+      statusFilter = { status: { $in: ['draft', 'published'] } }
+    } else if (filter === 'archived') {
+      statusFilter = { status: 'archived' }
+    }
+    // 'all' = no status filter
+
+    const animations = await Animation.find(statusFilter).sort({ createdAt: -1 })
+
+    logger.info(
+      { filter, count: animations.length },
+      'Listed all animations (admin)'
+    )
+
+    return animations
+  }
+
+  /**
    * Get a published animation by slug (public access, no authentication)
    * @param slug - The animation slug
    * @returns Animation document if published

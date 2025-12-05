@@ -34,7 +34,7 @@ export function PublishConfirmationModal({
   slug,
   isLoading = false,
 }: PublishConfirmationModalProps) {
-  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/${slug}`
+  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'}/a/${slug}`
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -47,8 +47,7 @@ export function PublishConfirmationModal({
           <AlertDialogDescription asChild>
             <div className="space-y-4">
               <p>
-                Vous êtes sur le point de publier l'animation{' '}
-                <strong>"{animationName}"</strong>.
+                Vous êtes sur le point de publier l'animation <strong>"{animationName}"</strong>.
               </p>
 
               <div className="bg-muted p-3 rounded-md">
@@ -61,8 +60,8 @@ export function PublishConfirmationModal({
               <Alert variant="default" className="border-amber-200 bg-amber-50">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-700 text-sm">
-                  Une fois publiée, l'animation sera accessible à tous via l'URL ci-dessus
-                  et un QR code sera généré automatiquement.
+                  Une fois publiée, l'animation sera accessible à tous via l'URL ci-dessus et un QR
+                  code sera généré automatiquement.
                 </AlertDescription>
               </Alert>
             </div>

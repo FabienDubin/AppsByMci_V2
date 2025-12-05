@@ -20,10 +20,11 @@ function errorResponse(code: string, message: string, status: number = 400) {
 
 /**
  * GET /api/animations
- * List all animations for authenticated user
+ * List animations for authenticated user
  * Requires authentication
  * Query params:
  *   - filter: 'active' (default), 'archived', or 'all'
+ *   - scope: 'mine' (default) or 'all' (admin only - lists all users' animations)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -42,11 +43,22 @@ export async function GET(request: NextRequest) {
       filterParam === 'all' ? 'all' :
       'active' // default
 
+    // Get scope param (admin only can use scope=all)
+    const scopeParam = searchParams.get('scope')
+    const isAdminAllScope = scopeParam === 'all' && user.role === 'admin'
+
     // Connect to database
     await connectDatabase()
 
-    // List animations for user with filter
-    const animations = await animationService.listAnimations(user.userId, filter)
+    // List animations based on scope
+    let animations
+    if (isAdminAllScope) {
+      // Admin requesting all animations from all users
+      animations = await animationService.listAllAnimations(filter)
+    } else {
+      // Regular user or admin requesting their own animations
+      animations = await animationService.listAnimations(user.userId, filter)
+    }
 
     // Transform to response format
     const response = animations.map((animation) =>
@@ -54,7 +66,7 @@ export async function GET(request: NextRequest) {
     )
 
     logger.info(
-      { userId: user.userId, filter, count: response.length },
+      { userId: user.userId, filter, scope: isAdminAllScope ? 'all' : 'mine', count: response.length },
       'Animations listed successfully'
     )
 

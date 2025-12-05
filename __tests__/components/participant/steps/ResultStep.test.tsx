@@ -191,7 +191,7 @@ describe('ResultStep', () => {
 
       expect(screen.getByTestId('email-confirmation')).toBeInTheDocument()
       expect(screen.getByTestId('email-confirmation')).toHaveTextContent(
-        'Un email avec ton résultat a été envoyé à user@example.com'
+        'Un email a été envoyé à user@example.com'
       )
     })
 

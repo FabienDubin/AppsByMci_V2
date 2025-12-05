@@ -39,6 +39,10 @@ export class AnimationService {
     return animationQueryService.listAnimations(userId, filter)
   }
 
+  async listAllAnimations(filter: AnimationFilter = 'active'): Promise<IAnimation[]> {
+    return animationQueryService.listAllAnimations(filter)
+  }
+
   async getPublishedAnimationBySlug(slug: string): Promise<IAnimation> {
     return animationQueryService.getPublishedAnimationBySlug(slug)
   }

@@ -7,7 +7,9 @@ jest.mock('@/lib/blob-storage', () => ({
       url: 'https://storage.blob.core.windows.net/qrcodes/test-1234567890.png',
       blobName: 'test-1234567890.png',
     }),
-    generateSasUrl: jest.fn().mockResolvedValue('https://storage.blob.core.windows.net/qrcodes/test.png?sv=...'),
+    generateSasUrl: jest
+      .fn()
+      .mockResolvedValue('https://storage.blob.core.windows.net/qrcodes/test.png?sv=...'),
     initialize: jest.fn().mockResolvedValue(undefined),
   },
   CONTAINERS: {
@@ -32,7 +34,7 @@ jest.mock('@/lib/logger', () => ({
 describe('QR Code Service', () => {
   describe('generateQRCode', () => {
     it('should generate a valid PNG buffer', async () => {
-      const url = 'https://appsbymci.com/a/test-animation'
+      const url = 'https://avatar.appsbymci.com/a/test-animation'
 
       const buffer = await generateQRCode(url)
 
@@ -48,7 +50,7 @@ describe('QR Code Service', () => {
     })
 
     it('should generate QR code with custom dimensions', async () => {
-      const url = 'https://appsbymci.com/a/test'
+      const url = 'https://avatar.appsbymci.com/a/test'
 
       const buffer = await generateQRCode(url, { width: 256 })
 
@@ -57,7 +59,7 @@ describe('QR Code Service', () => {
     })
 
     it('should generate QR code with custom colors', async () => {
-      const url = 'https://appsbymci.com/a/test'
+      const url = 'https://avatar.appsbymci.com/a/test'
 
       const buffer = await generateQRCode(url, {
         color: {
@@ -101,7 +103,7 @@ describe('QR Code Service', () => {
 
       const url = buildPublicUrl('my-animation')
 
-      expect(url).toBe('https://appsbymci.com/a/my-animation')
+      expect(url).toBe('https://avatar.appsbymci.com/a/my-animation')
     })
 
     it('should handle slugs with special characters', () => {

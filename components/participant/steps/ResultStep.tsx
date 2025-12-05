@@ -58,9 +58,7 @@ function ImageError({ onRetry }: { onRetry: () => void }) {
       data-testid="image-error"
     >
       <ImageOff className="w-16 h-16 text-gray-400" />
-      <p className="text-gray-600 text-center px-4">
-        Impossible de charger l&apos;image
-      </p>
+      <p className="text-gray-600 text-center px-4">Impossible de charger l&apos;image</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw className="w-4 h-4 mr-2" />
         Réessayer
@@ -208,8 +206,7 @@ export function ResultStep({
           className="flex items-center gap-2 text-gray-600 mb-6"
           data-testid="email-confirmation"
         >
-          <Mail className="w-5 h-5" />
-          <span>Un email avec ton résultat a été envoyé à {userEmail}</span>
+          <span>Un email a été envoyé à {userEmail}</span>
         </div>
       )}
 

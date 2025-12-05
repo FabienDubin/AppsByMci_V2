@@ -470,6 +470,7 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
                     open={openDesignSection}
                     onToggle={() => setOpenDesignSection(!openDesignSection)}
                     getAuthToken={getAuthToken}
+                    backgroundImageUrl={watchedDesign?.backgroundImageUrl}
                   />
                 </div>
 

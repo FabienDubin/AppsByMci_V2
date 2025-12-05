@@ -2,13 +2,29 @@
 
 import { useMemo } from 'react'
 import { useWizardStore } from '@/lib/stores/wizard.store'
-import { generateSummary, getLayoutDisplayName, getScrollSpeedDisplayName, getThemeDisplayName, getInputTypeDisplayName } from '@/lib/utils/animation-summary'
+import {
+  generateSummary,
+  getLayoutDisplayName,
+  getScrollSpeedDisplayName,
+  getThemeDisplayName,
+  getInputTypeDisplayName,
+} from '@/lib/utils/animation-summary'
 import { isSectionComplete } from '@/lib/services/animation-validation.service'
 import { SummaryCard, SummaryItem, ColorPreview } from '@/components/wizard/summary-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Check, AlertTriangle, Copy, Camera, Mail, Monitor, Palette, Settings, Layers } from 'lucide-react'
+import {
+  Check,
+  AlertTriangle,
+  Copy,
+  Camera,
+  Mail,
+  Monitor,
+  Palette,
+  Settings,
+  Layers,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 
@@ -36,7 +52,7 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
 
   // Copy slug URL to clipboard
   const copySlugUrl = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'
     const url = `${baseUrl}/a/${summary.generalInfo.slug}`
     navigator.clipboard.writeText(url)
     toast.success('URL copiée dans le presse-papier')
@@ -70,8 +86,8 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertTitle className="text-orange-800">Configuration incomplète</AlertTitle>
           <AlertDescription className="text-orange-700">
-            Veuillez corriger les erreurs ci-dessous avant de publier.
-            Vous pouvez toujours sauvegarder comme brouillon.
+            Veuillez corriger les erreurs ci-dessous avant de publier. Vous pouvez toujours
+            sauvegarder comme brouillon.
             <ul className="mt-2 list-disc list-inside">
               {summary.validationErrors.map((error, index) => (
                 <li key={index}>{error.message}</li>
@@ -94,11 +110,19 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
           <dl className="space-y-3">
             <SummaryItem
               label="Nom"
-              value={summary.generalInfo.name || <span className="text-muted-foreground">Non défini</span>}
+              value={
+                summary.generalInfo.name || (
+                  <span className="text-muted-foreground">Non défini</span>
+                )
+              }
             />
             <SummaryItem
               label="Description"
-              value={summary.generalInfo.description || <span className="text-muted-foreground">Aucune description</span>}
+              value={
+                summary.generalInfo.description || (
+                  <span className="text-muted-foreground">Aucune description</span>
+                )
+              }
             />
             {/* Only show URL in create mode - edit mode has dedicated section at top */}
             {mode === 'create' && (
@@ -106,15 +130,11 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
                 <dt className="text-sm font-medium text-muted-foreground">URL publique</dt>
                 <dd className="mt-0.5 flex items-center gap-2">
                   <code className="text-xs bg-muted px-2 py-1 rounded">
-                    {process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'}/a/{summary.generalInfo.slug || '...'}
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'}/a/
+                    {summary.generalInfo.slug || '...'}
                   </code>
                   {summary.generalInfo.slug && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={copySlugUrl}
-                    >
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={copySlugUrl}>
                       <Copy className="h-3 w-3" />
                     </Button>
                   )}
@@ -202,7 +222,8 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
 
           <div className="mt-4 pt-3 border-t">
             <Badge variant="secondary">
-              {summary.dataCollection.totalFields} champ{summary.dataCollection.totalFields > 1 ? 's' : ''} à collecter au total
+              {summary.dataCollection.totalFields} champ
+              {summary.dataCollection.totalFields > 1 ? 's' : ''} à collecter au total
             </Badge>
           </div>
         </SummaryCard>
@@ -218,7 +239,9 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
           <dl className="space-y-3">
             <SummaryItem
               label="Nombre de blocs"
-              value={`${summary.pipeline.blocksCount} bloc${summary.pipeline.blocksCount > 1 ? 's' : ''}`}
+              value={`${summary.pipeline.blocksCount} bloc${
+                summary.pipeline.blocksCount > 1 ? 's' : ''
+              }`}
             />
             <SummaryItem
               label="Modèle IA"
@@ -236,8 +259,7 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
                   <ol className="space-y-1 text-sm list-decimal list-inside">
                     {summary.pipeline.blocks.map((block, index) => (
                       <li key={index}>
-                        <span className="text-muted-foreground">{block.type}:</span>{' '}
-                        {block.summary}
+                        <span className="text-muted-foreground">{block.type}:</span> {block.summary}
                       </li>
                     ))}
                   </ol>
@@ -272,11 +294,17 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
               <>
                 <SummaryItem
                   label="Sujet"
-                  value={summary.email.subject || <span className="text-muted-foreground">Non défini</span>}
+                  value={
+                    summary.email.subject || (
+                      <span className="text-muted-foreground">Non défini</span>
+                    )
+                  }
                 />
                 <SummaryItem
                   label="Variables dynamiques"
-                  value={`${summary.email.variablesCount || 0} variable${(summary.email.variablesCount || 0) > 1 ? 's' : ''}`}
+                  value={`${summary.email.variablesCount || 0} variable${
+                    (summary.email.variablesCount || 0) > 1 ? 's' : ''
+                  }`}
                 />
               </>
             )}
@@ -311,16 +339,15 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
                   value={getLayoutDisplayName(summary.publicDisplay.layout || 'masonry')}
                 />
                 {summary.publicDisplay.layout !== 'carousel' && (
-                  <SummaryItem
-                    label="Colonnes"
-                    value={summary.publicDisplay.columns}
-                  />
+                  <SummaryItem label="Colonnes" value={summary.publicDisplay.columns} />
                 )}
                 <SummaryItem
                   label="Auto-scroll"
                   value={
                     summary.publicDisplay.autoScroll
-                      ? `Oui (${getScrollSpeedDisplayName(summary.publicDisplay.autoScrollSpeed || 'medium')})`
+                      ? `Oui (${getScrollSpeedDisplayName(
+                          summary.publicDisplay.autoScrollSpeed || 'medium'
+                        )})`
                       : 'Non'
                   }
                 />
@@ -349,7 +376,9 @@ export function Step8Summary({ onGoToStep, mode = 'create' }: Step8SummaryProps)
                 </dd>
               </div>
               <div className="flex-1">
-                <dt className="text-sm font-medium text-muted-foreground mb-1">Couleur secondaire</dt>
+                <dt className="text-sm font-medium text-muted-foreground mb-1">
+                  Couleur secondaire
+                </dt>
                 <dd>
                   <ColorPreview color={summary.customization.secondaryColor} />
                 </dd>

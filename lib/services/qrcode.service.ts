@@ -36,10 +36,7 @@ const DEFAULT_OPTIONS: QRCodeOptions = {
  * @param options - QR code generation options
  * @returns Promise<Buffer> containing the PNG image
  */
-export async function generateQRCode(
-  url: string,
-  options: QRCodeOptions = {}
-): Promise<Buffer> {
+export async function generateQRCode(url: string, options: QRCodeOptions = {}): Promise<Buffer> {
   try {
     const mergedOptions = {
       ...DEFAULT_OPTIONS,
@@ -73,31 +70,20 @@ export async function generateQRCode(
  * @param slug - The animation slug (used for blob naming)
  * @returns Promise<string> URL of the uploaded blob
  */
-export async function uploadQRCodeToBlob(
-  buffer: Buffer,
-  slug: string
-): Promise<string> {
+export async function uploadQRCodeToBlob(buffer: Buffer, slug: string): Promise<string> {
   try {
     const timestamp = Date.now()
     const blobName = `${slug}-${timestamp}.png`
 
-    const result = await blobStorageService.uploadFile(
-      CONTAINERS.QRCODES,
-      blobName,
-      buffer,
-      {
-        contentType: 'image/png',
-        metadata: {
-          slug,
-          generatedAt: new Date().toISOString(),
-        },
-      }
-    )
+    const result = await blobStorageService.uploadFile(CONTAINERS.QRCODES, blobName, buffer, {
+      contentType: 'image/png',
+      metadata: {
+        slug,
+        generatedAt: new Date().toISOString(),
+      },
+    })
 
-    logger.info(
-      { blobName, url: result.url },
-      'QR code uploaded to blob storage'
-    )
+    logger.info({ blobName, url: result.url }, 'QR code uploaded to blob storage')
 
     return result.url
   } catch (error: any) {
@@ -125,10 +111,7 @@ export async function generateAndUploadQRCode(
   // Upload to blob storage
   const blobUrl = await uploadQRCodeToBlob(buffer, slug)
 
-  logger.info(
-    { publicUrl, slug, blobUrl },
-    'QR code generated and uploaded successfully'
-  )
+  logger.info({ publicUrl, slug, blobUrl }, 'QR code generated and uploaded successfully')
 
   return blobUrl
 }
@@ -172,7 +155,7 @@ export async function getQRCodeDownloadUrl(
  * @returns string Public URL for the animation
  */
 export function buildPublicUrl(slug: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://appsbymci.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://avatar.appsbymci.com'
   return `${baseUrl}/a/${slug}`
 }
 
