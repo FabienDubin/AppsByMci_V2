@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken } from '@/lib/auth'
 import { blobStorageService, MAX_BACKGROUND_SIZE, ALLOWED_BACKGROUND_TYPES } from '@/lib/blob-storage'
 import { logger } from '@/lib/logger'
+import { compressImageForEmail, shouldCompressImage } from '@/lib/utils/image-compression'
 
 // API response helpers
 function successResponse<T>(data: T) {
@@ -74,15 +75,51 @@ export async function POST(request: NextRequest) {
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    let buffer = Buffer.from(arrayBuffer)
+    let uploadMimeType = file.type
+
+    // Check if compression is requested (for email backgrounds)
+    const { searchParams } = new URL(request.url)
+    const shouldCompress = searchParams.get('compress') === 'true'
+
+    // Compress if requested and image is large enough to benefit
+    let compressionInfo: { originalSize: number; compressedSize: number; compressionRatio: number } | null = null
+    if (shouldCompress && shouldCompressImage(buffer.length)) {
+      try {
+        const result = await compressImageForEmail(buffer, file.type)
+        buffer = Buffer.from(result.buffer)
+        uploadMimeType = result.mimeType
+        compressionInfo = {
+          originalSize: result.originalSize,
+          compressedSize: result.compressedSize,
+          compressionRatio: result.compressionRatio,
+        }
+        logger.info({
+          msg: 'Image compressed for email',
+          originalSize: `${(result.originalSize / 1024).toFixed(1)} KB`,
+          compressedSize: `${(result.compressedSize / 1024).toFixed(1)} KB`,
+          ratio: `${result.compressionRatio.toFixed(1)}%`,
+        })
+      } catch (compressionError) {
+        // Log but continue with original if compression fails
+        logger.warn({ err: compressionError }, 'Image compression failed, using original')
+      }
+    }
 
     // Ensure containers exist before upload
     await blobStorageService.ensureContainersExist()
 
     // Upload to Azure Blob Storage
-    const url = await blobStorageService.uploadBackground(buffer, file.type, auth.userId)
+    const url = await blobStorageService.uploadBackground(buffer, uploadMimeType, auth.userId)
 
-    logger.info({ msg: 'Background uploaded via API', userId: auth.userId, size: file.size, type: file.type })
+    logger.info({
+      msg: 'Background uploaded via API',
+      userId: auth.userId,
+      originalSize: file.size,
+      uploadedSize: buffer.length,
+      type: uploadMimeType,
+      compressed: !!compressionInfo,
+    })
 
     return successResponse({ url })
   } catch (error: any) {

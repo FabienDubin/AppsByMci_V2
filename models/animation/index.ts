@@ -21,7 +21,7 @@ export type {
 } from './pipeline.types'
 
 // Email configuration (Step 5)
-export type { IEmailConfig } from './email-config.types'
+export type { IEmailDesign, IEmailConfig } from './email-config.types'
 
 // Public display configuration (Step 6)
 export type { IDisplayConfig, IPublicDisplayConfig } from './public-display.types'

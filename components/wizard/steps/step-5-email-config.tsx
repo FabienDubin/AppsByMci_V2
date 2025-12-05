@@ -3,16 +3,32 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useWizardStore, getAvailableEmailVariables, DEFAULT_EMAIL_CONFIG } from '@/lib/stores/wizard.store'
+import { useAuthStore } from '@/lib/stores/auth.store'
+import { useWizardStore, getAvailableEmailVariables, DEFAULT_EMAIL_CONFIG, DEFAULT_EMAIL_DESIGN } from '@/lib/stores/wizard.store'
 import { emailConfigSchema } from '@/lib/schemas/animation.schema'
 
 // Form values type for React Hook Form
+interface EmailDesignFormValues {
+  logoUrl?: string
+  backgroundImageUrl?: string
+  backgroundColor?: string
+  backgroundColorOpacity?: number
+  contentBackgroundColor?: string
+  contentBackgroundOpacity?: number
+  primaryColor?: string
+  textColor?: string
+  borderRadius?: number
+  ctaText?: string
+  ctaUrl?: string
+}
+
 interface EmailConfigFormValues {
   enabled: boolean
   subject?: string
   bodyTemplate?: string
   senderName: string
   senderEmail: string
+  design?: EmailDesignFormValues
 }
 import {
   validateVariables,
@@ -51,6 +67,7 @@ import {
   CollapsibleContent,
 } from '@/components/ui/collapsible'
 import { AlertTriangle, Mail, Info } from 'lucide-react'
+import { EmailDesignSection } from './step-5/email-design-section'
 
 interface Step5EmailConfigProps {
   onValidationChange?: (isValid: boolean) => void
@@ -62,13 +79,22 @@ interface Step5EmailConfigProps {
  * Allows admins to configure automatic email sending to participants
  */
 export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Step5EmailConfigProps) {
+  const { getAccessToken } = useAuthStore()
   const { animationData, updateData } = useWizardStore()
+
+  // Collapsible sections state
+  const [openDesignSection, setOpenDesignSection] = useState(true)
 
   // Get available variables from animation data
   const availableVariables = useMemo(
     () => getAvailableEmailVariables(animationData),
     [animationData]
   )
+
+  // Get auth token for image uploads
+  const getAuthToken = useCallback(async (): Promise<string | null> => {
+    return getAccessToken()
+  }, [getAccessToken])
 
   // Initialize form with stored data or defaults
   const form = useForm<EmailConfigFormValues>({
@@ -79,6 +105,19 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
       bodyTemplate: animationData.emailConfig?.bodyTemplate ?? '',
       senderName: animationData.emailConfig?.senderName ?? DEFAULT_EMAIL_CONFIG.senderName,
       senderEmail: animationData.emailConfig?.senderEmail ?? DEFAULT_EMAIL_CONFIG.senderEmail,
+      design: {
+        logoUrl: animationData.emailConfig?.design?.logoUrl ?? DEFAULT_EMAIL_DESIGN.logoUrl,
+        backgroundImageUrl: animationData.emailConfig?.design?.backgroundImageUrl ?? DEFAULT_EMAIL_DESIGN.backgroundImageUrl,
+        backgroundColor: animationData.emailConfig?.design?.backgroundColor ?? DEFAULT_EMAIL_DESIGN.backgroundColor,
+        backgroundColorOpacity: animationData.emailConfig?.design?.backgroundColorOpacity ?? DEFAULT_EMAIL_DESIGN.backgroundColorOpacity,
+        contentBackgroundColor: animationData.emailConfig?.design?.contentBackgroundColor ?? DEFAULT_EMAIL_DESIGN.contentBackgroundColor,
+        contentBackgroundOpacity: animationData.emailConfig?.design?.contentBackgroundOpacity ?? DEFAULT_EMAIL_DESIGN.contentBackgroundOpacity,
+        primaryColor: animationData.emailConfig?.design?.primaryColor ?? DEFAULT_EMAIL_DESIGN.primaryColor,
+        textColor: animationData.emailConfig?.design?.textColor ?? DEFAULT_EMAIL_DESIGN.textColor,
+        borderRadius: animationData.emailConfig?.design?.borderRadius ?? DEFAULT_EMAIL_DESIGN.borderRadius,
+        ctaText: animationData.emailConfig?.design?.ctaText ?? DEFAULT_EMAIL_DESIGN.ctaText,
+        ctaUrl: animationData.emailConfig?.design?.ctaUrl ?? DEFAULT_EMAIL_DESIGN.ctaUrl,
+      },
     },
     mode: 'onChange',
   })
@@ -89,6 +128,22 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
   const bodyTemplate = watch('bodyTemplate')
   const senderName = watch('senderName')
   const senderEmail = watch('senderEmail')
+
+  // Watch the entire design object AND individual properties for real-time preview updates
+  // (like step-7-customization does - individual watches force re-render on nested changes)
+  const watchedDesign = watch('design')
+  // These watches force re-render when nested properties change
+  watch('design.logoUrl')
+  watch('design.backgroundImageUrl')
+  watch('design.backgroundColor')
+  watch('design.backgroundColorOpacity')
+  watch('design.contentBackgroundColor')
+  watch('design.contentBackgroundOpacity')
+  watch('design.primaryColor')
+  watch('design.textColor')
+  watch('design.borderRadius')
+  watch('design.ctaText')
+  watch('design.ctaUrl')
 
   // Track invalid variables for warnings
   const [subjectWarnings, setSubjectWarnings] = useState<string[]>([])
@@ -166,6 +221,19 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
           bodyTemplate: value.bodyTemplate,
           senderName: value.senderName ?? DEFAULT_EMAIL_CONFIG.senderName,
           senderEmail: value.senderEmail ?? DEFAULT_EMAIL_CONFIG.senderEmail,
+          design: value.design ? {
+            logoUrl: value.design.logoUrl,
+            backgroundImageUrl: value.design.backgroundImageUrl,
+            backgroundColor: value.design.backgroundColor,
+            backgroundColorOpacity: value.design.backgroundColorOpacity,
+            contentBackgroundColor: value.design.contentBackgroundColor,
+            contentBackgroundOpacity: value.design.contentBackgroundOpacity,
+            primaryColor: value.design.primaryColor,
+            textColor: value.design.textColor,
+            borderRadius: value.design.borderRadius,
+            ctaText: value.design.ctaText,
+            ctaUrl: value.design.ctaUrl,
+          } : undefined,
         },
       })
     })
@@ -395,6 +463,14 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
                       )}
                     />
                   </div>
+
+                  {/* Email Design Section */}
+                  <EmailDesignSection
+                    form={form}
+                    open={openDesignSection}
+                    onToggle={() => setOpenDesignSection(!openDesignSection)}
+                    getAuthToken={getAuthToken}
+                  />
                 </div>
 
                 {/* Preview Column (40%) */}
@@ -406,6 +482,7 @@ export function Step5EmailConfig({ onValidationChange, onUpdateBaseFields }: Ste
                       availableVariables={availableVariables}
                       senderName={senderName}
                       senderEmail={senderEmail}
+                      design={watchedDesign}
                     />
                   </div>
                 </div>

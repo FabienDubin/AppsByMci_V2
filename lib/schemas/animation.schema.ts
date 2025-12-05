@@ -82,6 +82,19 @@ export const updateAnimationSchema = z.object({
       bodyTemplate: z.string().max(10000).optional(),
       senderName: z.string().max(100).default('AppsByMCI'),
       senderEmail: z.string().email().default('noreply@appsbymci.com'),
+      design: z.object({
+        logoUrl: z.string().url().optional().or(z.literal('')),
+        backgroundImageUrl: z.string().url().optional().or(z.literal('')),
+        backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        backgroundColorOpacity: z.number().int().min(0).max(100).optional(),
+        contentBackgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        contentBackgroundOpacity: z.number().int().min(0).max(100).optional(),
+        primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        textColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        borderRadius: z.number().int().min(0).max(32).optional(),
+        ctaText: z.string().max(50).optional().or(z.literal('')),
+        ctaUrl: z.string().url().optional().or(z.literal('')).or(z.literal('{downloadLink}')),
+      }).optional(),
     })
     .optional(),
   // Step 6: Public Display Config (new complete schema)

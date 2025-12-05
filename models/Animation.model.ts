@@ -18,6 +18,7 @@ import type {
   IPipelineBlockConfig,
   IPipelineBlock,
   IAIModel,
+  IEmailDesign,
   IEmailConfig,
   IDisplayConfig,
   IPublicDisplayConfig,
@@ -45,6 +46,7 @@ export type {
   IPipelineBlockConfig,
   IPipelineBlock,
   IAIModel,
+  IEmailDesign,
   IEmailConfig,
   IDisplayConfig,
   IPublicDisplayConfig,
@@ -485,6 +487,64 @@ const AnimationSchema = new Schema<IAnimation>(
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           },
           message: "Format d'email invalide"
+        }
+      },
+      // Email design configuration (Step 5 enhancement)
+      design: {
+        logoUrl: {
+          type: String,
+          default: undefined
+        },
+        backgroundImageUrl: {
+          type: String,
+          default: undefined
+        },
+        backgroundColor: {
+          type: String,
+          match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #f5f5f5)'],
+          default: undefined
+        },
+        backgroundColorOpacity: {
+          type: Number,
+          min: [0, 'Opacité minimum 0%'],
+          max: [100, 'Opacité maximum 100%'],
+          default: undefined
+        },
+        contentBackgroundColor: {
+          type: String,
+          match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #ffffff)'],
+          default: undefined
+        },
+        contentBackgroundOpacity: {
+          type: Number,
+          min: [0, 'Opacité minimum 0%'],
+          max: [100, 'Opacité maximum 100%'],
+          default: undefined
+        },
+        primaryColor: {
+          type: String,
+          match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #4F46E5)'],
+          default: undefined
+        },
+        textColor: {
+          type: String,
+          match: [/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #333333)'],
+          default: undefined
+        },
+        borderRadius: {
+          type: Number,
+          min: [0, 'Border radius minimum 0px'],
+          max: [32, 'Border radius maximum 32px'],
+          default: undefined
+        },
+        ctaText: {
+          type: String,
+          maxlength: [50, 'Le texte du CTA ne peut pas dépasser 50 caractères'],
+          default: undefined
+        },
+        ctaUrl: {
+          type: String,
+          default: undefined
         }
       }
     },

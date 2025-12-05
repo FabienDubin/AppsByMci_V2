@@ -80,41 +80,20 @@ export interface PipelineBlock {
   config: PipelineBlockConfig
 }
 
-// Step 6: Public Display Config type
-export interface PublicDisplayConfig {
-  enabled: boolean
-  layout: 'masonry' | 'grid' | 'carousel'
-  columns?: number // Required if layout !== 'carousel'
-  autoScroll?: boolean // Auto-scroll for Masonry/Grid
-  autoScrollSpeed?: 'slow' | 'medium' | 'fast' // Scroll speed
-  showParticipantName: boolean
-  refreshInterval: number // 5-60 seconds
-}
+// Re-export types from centralized types file (to avoid circular imports)
+export type {
+  PublicDisplayConfig,
+  TextCard,
+  Customization,
+  EmailDesign,
+  EmailConfigData,
+} from '@/lib/types/wizard.types'
 
-// Step 7: Text Card type
-export interface TextCard {
-  enabled: boolean
-  backgroundColor: string // hex #RRGGBB
-  opacity: number // 0-100
-  borderRadius: number // 0-24
-  padding: number // 8-32
-}
-
-// Step 7: Customization type
-export interface Customization {
-  primaryColor: string // hex #RRGGBB
-  secondaryColor: string // hex #RRGGBB
-  logo?: string // URL Azure Blob
-  backgroundImage?: string // URL Azure Blob
-  backgroundColor?: string // hex #RRGGBB
-  backgroundColorOpacity?: number // 0-100 (overlay opacity over background image)
-  textCard?: TextCard // Text card overlay configuration
-  theme: 'light' | 'dark' | 'auto'
-  welcomeMessage?: string // HTML string from WYSIWYG editor (Story 3.13)
-  submissionMessage: string // max 100 chars, default provided
-  loadingMessages: string[] // min 3, max 10
-  thankYouMessage: string // max 100 chars, default provided
-}
+// Import types for local use
+import type {
+  PublicDisplayConfig,
+  Customization,
+} from '@/lib/types/wizard.types'
 
 // Re-export defaults from centralized constants
 export {
@@ -209,6 +188,19 @@ export interface AnimationData {
     bodyTemplate?: string
     senderName: string
     senderEmail: string
+    design?: {
+      logoUrl?: string
+      backgroundImageUrl?: string
+      backgroundColor?: string
+      backgroundColorOpacity?: number
+      contentBackgroundColor?: string
+      contentBackgroundOpacity?: number
+      primaryColor?: string
+      textColor?: string
+      borderRadius?: number
+      ctaText?: string
+      ctaUrl?: string
+    }
   }
   // Step 6: Public Display Config
   publicDisplayConfig?: PublicDisplayConfig
@@ -348,19 +340,10 @@ export const useWizardStore = create<WizardStore>()(
   )
 )
 
-/**
- * Email config interface (Step 5)
- */
-export interface EmailConfigData {
-  enabled: boolean
-  subject?: string
-  bodyTemplate?: string
-  senderName: string
-  senderEmail: string
-}
+// Note: EmailDesign and EmailConfigData types are re-exported from @/lib/types/wizard.types at the top of this file
 
 // Re-export email defaults from centralized constants
-export { DEFAULT_EMAIL_CONFIG } from '@/lib/constants/wizard-defaults'
+export { DEFAULT_EMAIL_CONFIG, DEFAULT_EMAIL_DESIGN } from '@/lib/constants/wizard-defaults'
 
 /**
  * Helper: Get available variables for prompt template

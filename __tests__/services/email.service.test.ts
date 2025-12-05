@@ -8,8 +8,11 @@ import {
   renderTemplate,
   sanitizeHtml,
   sendGenerationResult,
+  buildEmailHtml,
+  DEFAULT_EMAIL_DESIGN,
   type EmailTemplateData,
 } from '@/lib/services/email.service'
+import type { IEmailDesign } from '@/models/Animation.model'
 import type { IGeneration } from '@/models/Generation.model'
 import type { IAnimation } from '@/models/Animation.model'
 import mongoose from 'mongoose'
@@ -181,6 +184,208 @@ describe('Email Service', () => {
 
     it('should handle empty template', () => {
       expect(renderTemplate('', templateData)).toBe('')
+    })
+  })
+
+  describe('DEFAULT_EMAIL_DESIGN', () => {
+    it('should have all required default values', () => {
+      expect(DEFAULT_EMAIL_DESIGN).toMatchObject({
+        logoUrl: '',
+        backgroundImageUrl: '',
+        backgroundColor: '#f5f5f5',
+        contentBackgroundColor: '#ffffff',
+        contentBackgroundOpacity: 100,
+        primaryColor: '#4F46E5',
+        textColor: '#333333',
+        borderRadius: 12,
+        ctaText: '',
+        ctaUrl: '',
+      })
+    })
+  })
+
+  describe('buildEmailHtml', () => {
+    const templateData: EmailTemplateData = {
+      name: 'Jean Dupont',
+      firstName: 'Jean',
+      lastName: 'Dupont',
+      email: 'jean@example.com',
+      animationName: 'Mon Animation',
+      imageUrl: 'https://blob.azure.com/image.png',
+      viewResultLink: 'https://app.appsbymci.com/a/test/result/123',
+      downloadLink: 'https://app.appsbymci.com/api/generations/123/download',
+    }
+
+    it('should build valid HTML email with default design', () => {
+      const bodyContent = '<p>Bonjour Jean !</p>'
+      const result = buildEmailHtml(bodyContent, undefined, templateData)
+
+      expect(result).toContain('<!DOCTYPE html>')
+      expect(result).toContain('<html lang="fr">')
+      expect(result).toContain('Bonjour Jean !')
+      // Image is NOT automatically added - it should be in bodyContent via {imageUrl} variable
+      expect(result).not.toContain('alt="Résultat"')
+      // No CTA button by default (ctaText is empty)
+      expect(result).not.toContain('href="#"')
+      // No footer "Créé avec" anymore
+      expect(result).not.toContain('Créé avec')
+    })
+
+    it('should apply custom background color', () => {
+      const design: IEmailDesign = {
+        backgroundColor: '#1a1a2e',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain('background-color: #1a1a2e')
+    })
+
+    it('should apply background image when provided', () => {
+      const design: IEmailDesign = {
+        backgroundImageUrl: 'https://example.com/bg.jpg',
+        backgroundColor: '#000000',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain("background-image: url('https://example.com/bg.jpg')")
+      expect(result).toContain('background-size: cover')
+    })
+
+    it('should include logo when provided', () => {
+      const design: IEmailDesign = {
+        logoUrl: 'https://example.com/logo.png',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain('https://example.com/logo.png')
+      expect(result).toContain('alt="Logo"')
+    })
+
+    it('should not include logo section when logoUrl is empty', () => {
+      const design: IEmailDesign = {
+        logoUrl: '',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).not.toContain('alt="Logo"')
+    })
+
+    it('should apply custom primary color to CTA button when configured', () => {
+      const design: IEmailDesign = {
+        primaryColor: '#FF5733',
+        ctaText: 'Click me',
+        ctaUrl: 'https://example.com',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain('background-color: #FF5733')
+      expect(result).toContain('Click me')
+      expect(result).toContain('https://example.com')
+    })
+
+    it('should apply custom text color', () => {
+      const design: IEmailDesign = {
+        textColor: '#222222',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain('color: #222222')
+    })
+
+    it('should apply custom border radius', () => {
+      const design: IEmailDesign = {
+        borderRadius: 24,
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      expect(result).toContain('border-radius: 24px')
+    })
+
+    it('should apply content background with opacity', () => {
+      const design: IEmailDesign = {
+        contentBackgroundColor: '#ffffff',
+        contentBackgroundOpacity: 80,
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      // Should convert to rgba
+      expect(result).toContain('rgba(255, 255, 255, 0.8)')
+    })
+
+    it('should merge partial design with defaults', () => {
+      const design: IEmailDesign = {
+        primaryColor: '#00FF00',
+        ctaText: 'Test Button',
+        // Other values should use defaults
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      // Custom value (in CTA button)
+      expect(result).toContain('#00FF00')
+      expect(result).toContain('Test Button')
+      // Default border radius
+      expect(result).toContain('border-radius: 12px')
+    })
+
+    it('should substitute {downloadLink} variable in ctaUrl', () => {
+      const design: IEmailDesign = {
+        ctaText: 'Download Image',
+        ctaUrl: '{downloadLink}',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      // Should substitute the variable with actual downloadLink
+      expect(result).toContain(`href="${templateData.downloadLink}"`)
+      expect(result).not.toContain('{downloadLink}')
+    })
+
+    it('should not add duplicate image - image comes from bodyContent only', () => {
+      const bodyWithImage = `<p>Voici ton image:</p><img src="${templateData.imageUrl}" alt="Mon image">`
+      const design: IEmailDesign = {
+        primaryColor: '#FF0000',
+      }
+      const result = buildEmailHtml(bodyWithImage, design, templateData)
+
+      // Should contain the image from bodyContent
+      expect(result).toContain(templateData.imageUrl)
+      // Should NOT contain auto-added image with "Résultat" alt
+      expect(result).not.toContain('alt="Résultat"')
+      // Count occurrences of imageUrl - should be exactly 1 (from bodyContent)
+      const imageUrlCount = (result.match(new RegExp(templateData.imageUrl, 'g')) || []).length
+      expect(imageUrlCount).toBe(1)
+    })
+
+    it('should not include footer with animation name', () => {
+      const result = buildEmailHtml('<p>Test</p>', undefined, templateData)
+
+      // Should NOT contain "Créé avec" footer
+      expect(result).not.toContain('Créé avec')
+      // animationName is still used in <title>, but not in visible footer
+    })
+
+    it('should not show CTA button when ctaText is empty', () => {
+      const design: IEmailDesign = {
+        ctaText: '',
+        ctaUrl: 'https://example.com',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      // Should NOT contain CTA button
+      expect(result).not.toContain('https://example.com')
+    })
+
+    it('should show CTA button when ctaText is provided', () => {
+      const design: IEmailDesign = {
+        ctaText: 'Télécharger',
+        ctaUrl: 'https://example.com/download',
+        primaryColor: '#FF5733',
+      }
+      const result = buildEmailHtml('<p>Test</p>', design, templateData)
+
+      // Should contain CTA button with correct text and URL
+      expect(result).toContain('Télécharger')
+      expect(result).toContain('https://example.com/download')
+      expect(result).toContain('#FF5733')
     })
   })
 
@@ -365,7 +570,7 @@ describe('Email Service', () => {
         expect.objectContaining({
           Messages: [
             expect.objectContaining({
-              HTMLPart: expect.stringContaining('Télécharger mon image'), // Default template contains this
+              HTMLPart: expect.stringContaining('Voici ton image générée'), // Default template contains this
             }),
           ],
         })
@@ -410,6 +615,60 @@ describe('Email Service', () => {
       // These URLs should be built correctly in template data
       // The actual URLs depend on template, but the service should provide correct data
       expect(htmlPart).toBeDefined()
+    })
+
+    it('should use buildEmailHtml when design is configured', async () => {
+      const generation = createMockGeneration()
+      const animation = createMockAnimation({
+        emailConfig: {
+          enabled: true,
+          subject: 'Test avec design',
+          bodyTemplate: '<p>Bonjour {prenom} !</p>',
+          senderName: 'Test',
+          senderEmail: 'test@example.com',
+          design: {
+            logoUrl: 'https://example.com/logo.png',
+            primaryColor: '#FF0000',
+            backgroundColor: '#000000',
+            ctaText: 'Download',
+            ctaUrl: 'https://example.com/download',
+          },
+        },
+      } as Partial<IAnimation>)
+
+      await sendGenerationResult(generation, animation)
+
+      const callArgs = mockRequest.mock.calls[0][0]
+      const htmlPart = callArgs.Messages[0].HTMLPart
+
+      // Should contain design elements
+      expect(htmlPart).toContain('https://example.com/logo.png')
+      expect(htmlPart).toContain('#FF0000') // primaryColor in CTA button
+      expect(htmlPart).toContain('#000000') // backgroundColor
+      expect(htmlPart).toContain('Download') // CTA text
+    })
+
+    it('should use legacy template when design is not configured', async () => {
+      const generation = createMockGeneration()
+      const animation = createMockAnimation({
+        emailConfig: {
+          enabled: true,
+          subject: 'Test sans design',
+          bodyTemplate: '<p>Bonjour {prenom} !</p>',
+          senderName: 'Test',
+          senderEmail: 'test@example.com',
+          // No design configured
+        },
+      } as Partial<IAnimation>)
+
+      await sendGenerationResult(generation, animation)
+
+      const callArgs = mockRequest.mock.calls[0][0]
+      const htmlPart = callArgs.Messages[0].HTMLPart
+
+      // Should use legacy template (with #4F46E5 header)
+      expect(htmlPart).toContain('#4F46E5')
+      expect(htmlPart).toContain('Bonjour Jean !')
     })
   })
 })

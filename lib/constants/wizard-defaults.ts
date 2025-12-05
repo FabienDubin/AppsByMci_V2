@@ -7,11 +7,28 @@ import type {
   Customization,
   TextCard,
   PublicDisplayConfig,
-} from '@/lib/stores/wizard.store'
+} from '@/lib/types/wizard.types'
 
 // ============================================
 // STEP 5: EMAIL CONFIGURATION DEFAULTS
 // ============================================
+
+/**
+ * Default email design configuration
+ */
+export const DEFAULT_EMAIL_DESIGN = {
+  logoUrl: '',
+  backgroundImageUrl: '',
+  backgroundColor: '#f5f5f5',
+  backgroundColorOpacity: 50,
+  contentBackgroundColor: '#ffffff',
+  contentBackgroundOpacity: 100,
+  primaryColor: '#4F46E5',
+  textColor: '#333333',
+  borderRadius: 12,
+  ctaText: '',
+  ctaUrl: '',
+}
 
 /**
  * Default email configuration

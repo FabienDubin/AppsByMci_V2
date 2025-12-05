@@ -1,13 +1,27 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Mail, Monitor, Smartphone } from 'lucide-react'
 import { Toggle } from '@/components/ui/toggle'
-import { useState } from 'react'
 import { replaceVariablesWithPlaceholders, replaceSubjectVariables } from '@/lib/utils/email-variables'
 import { cn } from '@/lib/utils'
+import { DEFAULT_EMAIL_DESIGN } from '@/lib/constants/wizard-defaults'
+
+interface EmailDesign {
+  logoUrl?: string
+  backgroundImageUrl?: string
+  backgroundColor?: string
+  backgroundColorOpacity?: number
+  contentBackgroundColor?: string
+  contentBackgroundOpacity?: number
+  primaryColor?: string
+  textColor?: string
+  borderRadius?: number
+  ctaText?: string
+  ctaUrl?: string
+}
 
 interface EmailPreviewProps {
   subject: string
@@ -15,6 +29,18 @@ interface EmailPreviewProps {
   availableVariables: string[]
   senderName?: string
   senderEmail?: string
+  design?: EmailDesign
+}
+
+/**
+ * Convert hex color to rgba with opacity
+ */
+function hexToRgba(hex: string, opacity: number): string {
+  const cleanHex = hex.replace('#', '')
+  const r = parseInt(cleanHex.substring(0, 2), 16)
+  const g = parseInt(cleanHex.substring(2, 4), 16)
+  const b = parseInt(cleanHex.substring(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
 }
 
 /**
@@ -27,8 +53,24 @@ export function EmailPreview({
   availableVariables,
   senderName = 'AppsByMCI',
   senderEmail = 'noreply@appsbymci.com',
+  design = {},
 }: EmailPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
+
+  // Destructure design with defaults - EXACTLY like customization-preview does
+  const {
+    logoUrl = DEFAULT_EMAIL_DESIGN.logoUrl,
+    backgroundImageUrl = DEFAULT_EMAIL_DESIGN.backgroundImageUrl,
+    backgroundColor = DEFAULT_EMAIL_DESIGN.backgroundColor,
+    backgroundColorOpacity = DEFAULT_EMAIL_DESIGN.backgroundColorOpacity,
+    contentBackgroundColor = DEFAULT_EMAIL_DESIGN.contentBackgroundColor,
+    contentBackgroundOpacity = DEFAULT_EMAIL_DESIGN.contentBackgroundOpacity,
+    primaryColor = DEFAULT_EMAIL_DESIGN.primaryColor,
+    textColor = DEFAULT_EMAIL_DESIGN.textColor,
+    borderRadius = DEFAULT_EMAIL_DESIGN.borderRadius,
+    ctaText = DEFAULT_EMAIL_DESIGN.ctaText,
+    ctaUrl = DEFAULT_EMAIL_DESIGN.ctaUrl,
+  } = design
 
   // Process subject with variable replacement
   const processedSubject = useMemo(() => {
@@ -52,6 +94,28 @@ export function EmailPreview({
 
     return sanitized
   }, [bodyTemplate, availableVariables])
+
+  // Determine background style - EXACTLY like customization-preview
+  const getBackgroundStyle = () => {
+    if (backgroundImageUrl) {
+      return {
+        backgroundImage: `url(${backgroundImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+    if (backgroundColor) {
+      return {
+        backgroundColor: backgroundColor,
+      }
+    }
+    return {
+      backgroundColor: '#f5f5f5',
+    }
+  }
+
+  // Content background with opacity
+  const contentBgColor = hexToRgba(contentBackgroundColor, contentBackgroundOpacity)
 
   return (
     <Card className="h-full">
@@ -82,18 +146,21 @@ export function EmailPreview({
         </div>
       </CardHeader>
       <CardContent>
-        {/* Email frame */}
+        {/* Email frame - EXACTLY like customization-preview structure */}
         <div
           className={cn(
-            'border rounded-lg bg-white overflow-hidden transition-all duration-200',
+            'rounded-lg border overflow-hidden',
             viewMode === 'desktop' ? 'max-w-full' : 'max-w-[320px] mx-auto'
           )}
         >
           {/* Email header (sender info) */}
-          <div className="px-4 py-3 border-b bg-muted/30">
+          <div className="px-4 py-3 border-b bg-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Mail className="h-5 w-5 text-primary" />
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}20` }}
+              >
+                <Mail className="h-5 w-5" style={{ color: primaryColor }} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{senderName}</p>
@@ -103,7 +170,7 @@ export function EmailPreview({
           </div>
 
           {/* Subject line */}
-          <div className="px-4 py-3 border-b">
+          <div className="px-4 py-3 border-b bg-white">
             <p className="font-semibold text-sm">
               {processedSubject || (
                 <span className="text-muted-foreground italic">Pas de sujet</span>
@@ -111,19 +178,86 @@ export function EmailPreview({
             </p>
           </div>
 
-          {/* Email body */}
+          {/* Email body area with background - EXACTLY like customization-preview */}
           <div
-            className={cn(
-              'p-4 prose prose-sm max-w-none',
-              '[&_p]:my-2 [&_a]:text-primary [&_a]:underline',
-              '[&_.text-primary]:text-primary [&_.font-semibold]:font-semibold',
-              '[&_.text-destructive]:text-destructive',
-              viewMode === 'mobile' && 'text-sm'
+            className="relative p-4 min-h-[300px] flex flex-col"
+            style={getBackgroundStyle()}
+          >
+            {/* Background overlay (only if background image exists) */}
+            {backgroundImageUrl && backgroundColor && (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: hexToRgba(backgroundColor, backgroundColorOpacity) }}
+              />
             )}
-            dangerouslySetInnerHTML={{
-              __html: processedBody || '<p class="text-muted-foreground italic">Pas de contenu</p>',
-            }}
-          />
+
+            {/* Content - relative z-10 to be above overlay */}
+            <div className="relative z-10 flex flex-col items-center w-full">
+              {/* Logo */}
+              {logoUrl && (
+                <div className="text-center mb-4">
+                  <img
+                    src={logoUrl}
+                    alt="Logo"
+                    className="max-h-[60px] w-auto mx-auto"
+                  />
+                </div>
+              )}
+
+              {/* Content card */}
+              <div
+                className="w-full p-6"
+                style={{
+                  backgroundColor: contentBgColor,
+                  borderRadius: `${borderRadius}px`,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+              >
+                {/* Email body */}
+                <div
+                  className={cn(
+                    'prose prose-sm max-w-none',
+                    '[&_p]:my-2 [&_a]:underline',
+                    '[&_.text-primary]:text-primary [&_.font-semibold]:font-semibold',
+                    '[&_.text-destructive]:text-destructive',
+                    viewMode === 'mobile' && 'text-sm'
+                  )}
+                  style={{ color: textColor }}
+                  dangerouslySetInnerHTML={{
+                    __html: processedBody || '<p class="text-muted-foreground italic">Pas de contenu</p>',
+                  }}
+                />
+
+                {/* Sample generated image placeholder */}
+                <div className="mt-4 text-center">
+                  <div
+                    className="inline-block p-4 border-2 border-dashed border-muted-foreground/30 text-muted-foreground text-sm"
+                    style={{ borderRadius: `${Math.min(borderRadius, 16)}px` }}
+                  >
+                    📷 Image générée ici
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                {ctaText && (
+                  <div className="mt-4 text-center">
+                    <a
+                      href={ctaUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 text-white font-semibold no-underline"
+                      style={{
+                        backgroundColor: primaryColor,
+                        borderRadius: `${Math.min(borderRadius, 12)}px`,
+                      }}
+                    >
+                      {ctaText}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Legend */}
